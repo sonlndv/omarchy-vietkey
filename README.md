@@ -4,6 +4,8 @@
 switch with **Ctrl+Shift**, the way Unikey works on Windows, right from the
 Omarchy bar.
 
+![VietKey menu and Keyboard Settings](preview.png)
+
 Your keyboard layout stays US. Only the way you type changes:
 
 | Mode                 | You type          | You get     |
