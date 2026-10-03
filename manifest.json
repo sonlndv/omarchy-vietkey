@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "sonlndv.vietkey",
+  "name": "VietKey",
+  "version": "1.0.0",
+  "author": "sonlndv",
+  "license": "MIT",
+  "description": "Vietnamese keyboard for Omarchy. Type tiếng Việt with Telex or VNI, switch with Ctrl+Shift — like Unikey, built on fcitx5.",
+  "homepage": "https://github.com/sonlndv/omarchy-vietkey",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "VietKey",
+    "description": "EN / VI badge with a Unikey-style menu and settings. Ctrl+Shift or right click switches English ↔ Vietnamese.",
+    "category": "Compositor",
+    "aliases": [
+      "vietkey",
+      "vietnamese",
+      "tieng viet",
+      "telex",
+      "vni",
+      "unikey",
+      "fcitx",
+      "keyboard",
+      "input"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "pollIntervalMs": 700,
+      "showModeName": true
+    },
+    "schema": [
+      {
+        "key": "pollIntervalMs",
+        "type": "integer",
+        "label": "Refresh interval (ms)",
+        "min": 200,
+        "max": 5000,
+        "step": 100,
+        "defaultValue": 700,
+        "description": "How often the label checks for switches made with Ctrl+Shift."
+      },
+      {
+        "key": "showModeName",
+        "type": "boolean",
+        "label": "Show the input method next to the badge",
+        "defaultValue": true
+      }
+    ]
+  }
+}
