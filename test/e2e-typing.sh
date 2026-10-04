@@ -21,37 +21,56 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY=/usr/bin/python3
 DBUS_HELPER="$SCRIPT_DIR/dbus_e2e.py"
 
+# Resolve node once, before any `cd` into the repo. A plain `node` after `cd`
+# can trip a shell's mise directory hook and have mise lazily resolve/install
+# a (possibly different, possibly not-yet-downloaded) node mid-test. Pin to
+# the exact binary already on PATH right now -- the same one `node --test`
+# (catalogue tests) runs with -- so every embedded `node` call below uses it.
+NODE_BIN="$(command -v node)"
+
 WORK="$(mktemp -d /tmp/omakey-e2e.XXXXXXXX)"
 FCITX_PID=""
 DBUS_PID=""
+START_TS="$(date '+%Y-%m-%d %H:%M:%S')"
+
+# Match any process (fcitx5, mozc_server, or any other engine helper it
+# spawns) whose environment carries this run's private XDG_CONFIG_HOME.
+# mozc_server is forked by fcitx5 inside the same dbus-run-session shell, so
+# it inherits the exported XDG_CONFIG_HOME/HOME and is caught by the same
+# check -- no separate pgrep-by-name needed, and nothing of Son's live
+# session (XDG_CONFIG_HOME=~/.config there) ever matches.
+kill_private_procs() {
+  local sig=$1 pid
+  for d in /proc/[0-9]*; do
+    pid=${d#/proc/}
+    { tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null; } 2>/dev/null | grep -qxF "XDG_CONFIG_HOME=$WORK/config" || continue
+    kill "$sig" "$pid" >/dev/null 2>&1
+  done
+}
 
 cleanup() {
   local ec=$?
-  # Precise match: any fcitx5 whose XDG_CONFIG_HOME is this run's private
-  # workdir, never Son's live fcitx5 (XDG_CONFIG_HOME=~/.config there).
-  local pid
-  for pid in $(pgrep -x fcitx5 2>/dev/null); do
-    if tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -qxF "XDG_CONFIG_HOME=$WORK/config"; then
-      kill "$pid" >/dev/null 2>&1
-    fi
-  done
+  kill_private_procs -TERM
   [[ -n "$FCITX_PID" ]] && kill "$FCITX_PID" >/dev/null 2>&1
   [[ -n "$DBUS_PID" ]] && kill "$DBUS_PID" >/dev/null 2>&1
   sleep 0.2
-  for pid in $(pgrep -x fcitx5 2>/dev/null); do
-    if tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -qxF "XDG_CONFIG_HOME=$WORK/config"; then
-      kill -9 "$pid" >/dev/null 2>&1
-    fi
-  done
+  kill_private_procs -KILL
   rm -rf "$WORK"
   exit "$ec"
 }
 trap cleanup EXIT INT TERM HUP
 
-mkdir -p "$WORK/config/fcitx5" "$WORK/data" "$WORK/cache"
+mkdir -p "$WORK/config/fcitx5" "$WORK/data" "$WORK/cache" "$WORK/home"
 export XDG_CONFIG_HOME="$WORK/config"
 export XDG_DATA_HOME="$WORK/data"
 export XDG_CACHE_HOME="$WORK/cache"
+# mozc_server falls back to $HOME/.mozc for its session lock/IPC socket and
+# user data regardless of XDG_CONFIG_HOME. A stale mozc_server left alive
+# from an earlier run (or Son's own) fighting over that same real $HOME/.mozc
+# lock/socket is what produced the SIGABRT coredumps. Give this run its own
+# throwaway HOME so its mozc_server never shares a lock file with any other
+# mozc_server on the box.
+export HOME="$WORK/home"
 
 # Packages Jarvis confirmed installed; still probed live below so a stale
 # assumption here can't mask a real SKIP.
@@ -293,7 +312,7 @@ echo "== Catalogue.cycleTarget switching test (3+ languages) =="
 # Pure JS logic test, no fcitx5 needed: node --test already covers
 # cycleTarget, but re-assert it here against a live Catalogue.mjs import.
 # EN, VI, JA, KO: Ctrl+Shift walks the whole cycle and wraps to English.
-NODE_OUT="$(cd "$SCRIPT_DIR/.." && node --input-type=module -e '
+NODE_OUT="$(cd "$SCRIPT_DIR/.." && "$NODE_BIN" --input-type=module -e '
 import * as C from "./Catalogue.mjs";
 const engines = ["keyboard-us", "unikey", "mozc", "hangul"];
 const want = ["unikey", "mozc", "hangul", "keyboard-us"];
@@ -329,14 +348,14 @@ fcitx_private() {
   busctl --address="$BUS_ADDR" call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 "$@"
 }
 BEFORE="$(fcitx_private InputMethodGroupInfo s Default 2>>"$WORK/err.log")"
-mapfile -t SET_ARGS < <(cd "$SCRIPT_DIR/.." && BEFORE="$BEFORE" node --input-type=module -e '
+mapfile -t SET_ARGS < <(cd "$SCRIPT_DIR/.." && BEFORE="$BEFORE" "$NODE_BIN" --input-type=module -e '
 import * as C from "./Catalogue.mjs";
 const info = C.parseGroupInfo(process.env.BEFORE);
 for (const arg of C.setGroupArgs("Default", info.layout, C.moveLanguage(info.items, "ja", -1))) console.log(arg);
 ')
 fcitx_private "${SET_ARGS[@]}" >/dev/null 2>>"$WORK/err.log"
 AFTER="$(fcitx_private InputMethodGroupInfo s Default 2>>"$WORK/err.log")"
-REORDER_OUT="$(cd "$SCRIPT_DIR/.." && BEFORE="$BEFORE" AFTER="$AFTER" node --input-type=module -e '
+REORDER_OUT="$(cd "$SCRIPT_DIR/.." && BEFORE="$BEFORE" AFTER="$AFTER" "$NODE_BIN" --input-type=module -e '
 import * as C from "./Catalogue.mjs";
 const before = C.parseGroupInfo(process.env.BEFORE).items;
 const after = C.parseGroupInfo(process.env.AFTER).items;
@@ -364,6 +383,25 @@ else
   [[ -s "$WORK/err.log" ]] && sed 's/^/        stderr: /' "$WORK/err.log"
   FAIL=$((FAIL + 1))
   FAILED_NAMES+=("reorder")
+fi
+
+echo
+echo "== Crash check (mozc / fcitx5 coredumps during this run) =="
+# A stale private mozc_server (or any engine helper) crashing mid-run is a
+# real defect, not a flake: without this check a SIGABRT that happened to
+# land after the harness already read its expected commit could pass green
+# while leaving a coredump on disk. coredumpctl's COMM covers the crashing
+# binary name; filter to processes whose crash falls inside this run's
+# wall-clock window so we never blame this run for someone else's old core.
+CRASHES="$(coredumpctl list --no-pager --since="$START_TS" 2>/dev/null | grep -iE '\bmozc|\bfcitx5' || true)"
+if [[ -n "$CRASHES" ]]; then
+  echo "FAIL  engine coredump detected during this run:"
+  echo "$CRASHES" | sed 's/^/        /'
+  FAIL=$((FAIL + 1))
+  FAILED_NAMES+=("engine-coredump")
+else
+  echo "PASS  no mozc/fcitx5 coredump during this run"
+  PASS=$((PASS + 1))
 fi
 
 echo

@@ -274,7 +274,9 @@ Omarchy 4 (Hyprland + Omarchy shell) with fcitx5 started by the
 state; `omarchy-pkg-add` and Omarchy's floating terminal for installing.
 Packages come from the Arch `extra` repo. `fcitx5-configtool` is optional.
 
-For development: `node --test test/` checks the language catalogue.
+For development: `npm test` (or `node --test test/*.test.mjs`) checks the
+language catalogue. `node --test test/` fails because it also tries to load
+`test/dbus_e2e.py` and `test/e2e-typing.sh` as test files.
 
 ## Credits
 
