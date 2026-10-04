@@ -1,6 +1,6 @@
 // Omakey language catalogue and the pure logic around it: badge codes, the
-// first-run selection, append-only fcitx5 group merges and the Ctrl+Shift
-// toggle. No Qt imports, so BarWidget.qml and `node --test` share this file.
+// first-run selection, fcitx5 group merges and reorders, and the Ctrl+Shift
+// cycle. No Qt imports, so BarWidget.qml and `node --test` share this file.
 //
 // bin/omakey-setup keeps a copy of the id/badge/package/engine columns
 // between `# catalogue:start` and `# catalogue:end`; test/catalogue.test.mjs
@@ -234,38 +234,63 @@ export function languagesInGroup(items) {
   return out
 }
 
-// --------------------------------------------------------------- toggle
-
-// History holds non-English engines, most recent last.
-export function rememberEngine(history, engine) {
-  const out = (history || []).filter(other => other !== engine)
-  if (engine && !isEnglishEngine(engine)) out.push(engine)
-  return out.slice(-8)
+// The group's languages, in the order the settings dashboard can change:
+// English stays first, the rest move one step up (-1) or down (+1). Only the
+// non-English items trade places; English items keep their slots in the
+// group, and each language's engines keep their relative order. Returns the
+// new group items, or a copy of the old ones when nothing can move.
+export function moveLanguage(items, id, delta) {
+  const ids = languagesInGroup(items).slice(1).map(language => language.id)
+  const at = ids.indexOf(id)
+  const to = at + delta
+  if (at < 0 || to < 0 || to >= ids.length) return reorderGroup(items, ids)
+  ids.splice(at, 1)
+  ids.splice(to, 0, id)
+  return reorderGroup(items, ids)
 }
 
-// The most recently used non-English engine still in the group, else the
-// group's first non-English engine, else "".
-export function lastNonEnglish(history, groupEngines) {
-  const engines = groupEngines || []
-  const past = history || []
-  for (let i = past.length - 1; i >= 0; i--)
-    if (!isEnglishEngine(past[i]) && engines.indexOf(past[i]) >= 0) return past[i]
-  for (const engine of engines)
-    if (!isEnglishEngine(engine)) return engine
-  return ""
-}
-
-// Ctrl+Shift / right click: from any non-English engine to English, from
-// English back to the last non-English one. Returns "" when there's nothing
-// to switch to.
-export function toggleTarget(currentEngine, history, groupEngines) {
-  const engines = groupEngines || []
-  if (currentEngine && !isEnglishEngine(currentEngine)) {
-    for (const engine of engines)
-      if (isEnglishEngine(engine)) return engine
-    return LANGUAGES[0].engines[0]
+// Group items with the non-English ones sorted into the given language
+// order; English items and languages not listed stay where they are.
+export function reorderGroup(items, ids) {
+  const list = (items || []).map(item => ({ name: item.name, layout: item.layout || "" }))
+  const rank = item => {
+    const at = (ids || []).indexOf(languageForEngine(item.name).id)
+    return at < 0 ? (ids || []).length : at
   }
-  return lastNonEnglish(history, engines)
+  const others = list.map((item, n) => ({ item, n })).filter(entry => !isEnglishEngine(entry.item.name))
+  const sorted = others.slice().sort((a, b) => rank(a.item) - rank(b.item) || a.n - b.n)
+  const out = list.slice()
+  others.forEach((entry, k) => { out[entry.n] = sorted[k].item })
+  return out
+}
+
+// busctl arguments after the Controller1 interface for writing a group, the
+// same call bin/omakey-setup's write_group makes.
+export function setGroupArgs(group, layout, items) {
+  const args = ["SetInputMethodGroupInfo", "ssa(ss)", group, layout || "", String((items || []).length)]
+  for (const item of items || []) args.push(item.name, item.layout || "")
+  return args
+}
+
+// ---------------------------------------------------------------- cycle
+
+// Ctrl+Shift / right click: the next language in group order (English
+// first), wrapping back to English after the last one. Lands on the
+// language's first engine. Returns "" with only English in the group.
+export function cycleTarget(currentEngine, groupEngines) {
+  const languages = languagesInGroup((groupEngines || []).map(name => ({ name, layout: "" })))
+  if (languages.length < 2) return ""
+  const id = languageForEngine(currentEngine).id
+  const at = Math.max(0, languages.findIndex(language => language.id === id))
+  return languages[(at + 1) % languages.length].engines[0]
+}
+
+// The cycle spelled out with badges for menus and tooltips.
+export function cycleHint(languages) {
+  const badges = (languages || []).map(language => language.badge || language.name)
+  if (badges.length < 2) return "Ctrl+Shift cycles languages"
+  if (badges.length === 2) return "Ctrl+Shift: " + badges[0] + " ↔ " + badges[1]
+  return "Ctrl+Shift cycles: " + badges.concat([badges[0]]).join(" → ")
 }
 
 // -------------------------------------------------------------- parsing

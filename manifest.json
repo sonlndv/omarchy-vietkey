@@ -5,7 +5,7 @@
   "version": "2.0.0",
   "author": "sonlndv",
   "license": "MIT",
-  "description": "Input languages for Omarchy, built on fcitx5. English and Vietnamese (Telex/VNI) out of the box; add Japanese, Korean, Chinese, Thai and more. Ctrl+Shift switches English ↔ your last language.",
+  "description": "Input languages for Omarchy, built on fcitx5. English and Vietnamese (Telex/VNI) out of the box; add Japanese, Korean, Chinese, Thai and more. Ctrl+Shift cycles through your languages.",
   "homepage": "https://github.com/sonlndv/omarchy-vietkey",
   "kinds": [
     "bar-widget"
@@ -15,7 +15,7 @@
   },
   "barWidget": {
     "displayName": "Omakey",
-    "description": "Language badge (EN, VI, JA, KO, ZH, TH) with a menu to switch, add and remove languages. Ctrl+Shift or right click switches English ↔ the last language.",
+    "description": "Language badge (EN, VI, JA, KO, ZH, TH) with a menu to switch, add and remove languages and an Omakey Settings dashboard. Ctrl+Shift or right click cycles through your languages.",
     "category": "Compositor",
     "aliases": [
       "omakey",

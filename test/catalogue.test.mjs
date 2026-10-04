@@ -145,26 +145,73 @@ test("languages in group: English first, engines grouped per language", () => {
   assert.deepEqual(C.languagesInGroup([])[0].engines, ["keyboard-us"])
 })
 
-test("Ctrl+Shift / right click toggles English <-> last non-English language", () => {
-  const engines = ["keyboard-us", "unikey", "mozc", "hangul"]
-  // From English, back to the most recent non-English engine.
-  assert.equal(C.toggleTarget("keyboard-us", ["unikey", "mozc"], engines), "mozc")
-  // From any non-English engine, to the group's English layout.
-  assert.equal(C.toggleTarget("mozc", ["unikey", "mozc"], engines), "keyboard-us")
-  assert.equal(C.toggleTarget("hangul", [], ["keyboard-de", "hangul"]), "keyboard-de")
-  // No history yet: the first non-English engine in the group.
-  assert.equal(C.toggleTarget("keyboard-us", [], engines), "unikey")
-  // History entries that left the group are skipped.
-  assert.equal(C.toggleTarget("keyboard-us", ["hangul", "chewing"], engines), "hangul")
-  // Only English: nothing to switch to.
-  assert.equal(C.toggleTarget("keyboard-us", ["unikey"], ["keyboard-us"]), "")
+test("Ctrl+Shift / right click with only English: nothing to cycle to", () => {
+  assert.equal(C.cycleTarget("keyboard-us", ["keyboard-us"]), "")
+  assert.equal(C.cycleTarget("keyboard-de", ["keyboard-de"]), "")
+  assert.equal(C.cycleTarget("", []), "")
 })
 
-test("history keeps non-English engines, most recent last, without duplicates", () => {
-  let h = []
-  for (const e of ["unikey", "keyboard-us", "mozc", "unikey", "keyboard-us"]) h = C.rememberEngine(h, e)
-  assert.deepEqual(h, ["mozc", "unikey"])
-  assert.equal(C.lastNonEnglish(h, ["keyboard-us", "unikey", "mozc"]), "unikey")
+test("Ctrl+Shift / right click with two languages flips between them", () => {
+  const engines = ["keyboard-us", "unikey"]
+  assert.equal(C.cycleTarget("keyboard-us", engines), "unikey")
+  assert.equal(C.cycleTarget("unikey", engines), "keyboard-us")
+  // The group's own English layout, wherever it sits in the group.
+  assert.equal(C.cycleTarget("hangul", ["hangul", "keyboard-de"]), "keyboard-de")
+  assert.equal(C.cycleTarget("keyboard-de", ["hangul", "keyboard-de"]), "hangul")
+})
+
+test("Ctrl+Shift / right click with 3+ languages cycles in group order and wraps to English", () => {
+  const engines = ["keyboard-us", "unikey", "mozc", "hangul"]
+  let engine = "keyboard-us"
+  const seen = []
+  for (let i = 0; i < 5; i++) {
+    engine = C.cycleTarget(engine, engines)
+    seen.push(engine)
+  }
+  assert.deepEqual(seen, ["unikey", "mozc", "hangul", "keyboard-us", "unikey"])
+  // Another engine of the same language counts as that language; the next
+  // language is entered on its first engine.
+  const ja = ["keyboard-us", "mozc", "anthy", "pinyin", "shuangpin"]
+  assert.equal(C.cycleTarget("anthy", ja), "pinyin")
+  assert.equal(C.cycleTarget("shuangpin", ja), "keyboard-us")
+  // Layout languages are languages of their own, not English.
+  assert.equal(C.cycleTarget("keyboard-us", ["keyboard-us", "keyboard-ru", "unikey"]), "keyboard-ru")
+  assert.equal(C.cycleTarget("keyboard-ru", ["keyboard-us", "keyboard-ru", "unikey"]), "unikey")
+  // An engine that left the group restarts the cycle after English.
+  assert.equal(C.cycleTarget("chewing", engines), "unikey")
+})
+
+test("cycle hint spells out the order with badges", () => {
+  const langs = names => C.languagesInGroup(group(...names))
+  assert.equal(C.cycleHint(langs(["keyboard-us"])), "Ctrl+Shift cycles languages")
+  assert.equal(C.cycleHint(langs(["keyboard-us", "unikey"])), "Ctrl+Shift: EN ↔ VI")
+  assert.equal(C.cycleHint(langs(["keyboard-us", "unikey", "mozc"])), "Ctrl+Shift cycles: EN → VI → JA → EN")
+})
+
+test("dashboard reorder moves languages, keeps English slots and engine order", () => {
+  const items = group("keyboard-us", "unikey", "mozc", "anthy", "hangul")
+  const down = C.moveLanguage(items, "vi", 1)
+  assert.deepEqual(down.map(i => i.name), ["keyboard-us", "mozc", "anthy", "unikey", "hangul"])
+  assert.deepEqual(C.languagesInGroup(down).map(l => l.id), ["en", "ja", "vi", "ko"])
+  const up = C.moveLanguage(items, "ko", -1)
+  assert.deepEqual(up.map(i => i.name), ["keyboard-us", "unikey", "hangul", "mozc", "anthy"])
+  // Edges and English don't move; nothing is dropped.
+  assert.deepEqual(C.moveLanguage(items, "vi", -1), items)
+  assert.deepEqual(C.moveLanguage(items, "ko", 1), items)
+  assert.deepEqual(C.moveLanguage(items, "en", 1), items)
+  // An English layout in the middle of the group keeps its slot.
+  const mixed = [{ name: "unikey", layout: "" }, { name: "keyboard-de", layout: "de" }, { name: "mozc", layout: "" }]
+  assert.deepEqual(C.moveLanguage(mixed, "ja", -1),
+    [{ name: "mozc", layout: "" }, { name: "keyboard-de", layout: "de" }, { name: "unikey", layout: "" }])
+  // The new order is the cycle order.
+  const engines = up.map(i => i.name)
+  assert.equal(C.cycleTarget("unikey", engines), "hangul")
+  assert.equal(C.cycleTarget("hangul", engines), "mozc")
+})
+
+test("group write arguments match omakey-setup's SetInputMethodGroupInfo call", () => {
+  assert.deepEqual(C.setGroupArgs("Default", "us", [{ name: "keyboard-us", layout: "" }, { name: "mozc", layout: "jp" }]),
+    ["SetInputMethodGroupInfo", "ssa(ss)", "Default", "us", "2", "keyboard-us", "", "mozc", "jp"])
 })
 
 test("parses busctl group info and omakey-state output", () => {

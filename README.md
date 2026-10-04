@@ -87,21 +87,24 @@ Shuangpin, …) appear under their language too.
 
 | Action                    | Effect                                              |
 | ------------------------- | --------------------------------------------------- |
-| **Ctrl+Shift**            | English ↔ the last non-English language you used    |
+| **Ctrl+Shift**            | The next language, in order, back to English after the last |
 | Right click the badge     | Same as Ctrl+Shift                                  |
 | Click the badge           | Menu: pick any language or mode                     |
 
-So with English, Vietnamese and Japanese installed: type Japanese, press
-Ctrl+Shift for English, press it again and you're back in Japanese. Pick
-Vietnamese from the menu and Ctrl+Shift now toggles English ↔ Vietnamese.
-Until you've picked one, the first non-English language in your fcitx5 group
-is used. The last language is remembered while the shell runs.
+Ctrl+Shift cycles through every language you have enabled, in the order
+shown in the menu and in **Omakey Settings…** (your fcitx5 group order,
+English first):
+
+- **English only:** Ctrl+Shift does nothing; add a language first.
+- **Two languages:** it flips between them, e.g. English ↔ Vietnamese.
+- **Three or more:** it steps to the next one and wraps around, e.g.
+  English → Vietnamese → Japanese → English.
+
+A language is entered on its first engine (Vietnamese on Unikey, Japanese on
+Mozc). Change the order with the ↑/↓ buttons in Omakey Settings.
 
 Ctrl+Shift fires when you let go, and only if you pressed nothing else, so
 shortcuts like Ctrl+Shift+T keep working.
-
-There is no "cycle through all languages" hotkey in v1; use the menu. (Open
-assumption, may change.)
 
 ## The badge and menu
 
@@ -118,9 +121,9 @@ Vietnamese, `Pinyin` / `Zhuyin` for Chinese.
  ──────────────────────────────
    󰐕 Add language…
    󰍴 Remove language…
-   󰒓 Language settings…
+   󰒓 Omakey Settings…
  ──────────────────────────────
-   Ctrl+Shift: English ↔ Vietnamese
+   Ctrl+Shift cycles: EN → VI → JA → EN
 ```
 
 Arrow keys (or `j`/`k`), Enter and Esc work. In Add/Remove, Esc goes back to
@@ -132,13 +135,32 @@ only keeps a slow fallback check (`fallbackRefreshMs`, 5 s by default) for
 switches made with fcitx5's own hotkeys, which send no event. The old
 `pollIntervalMs` setting is no longer used.
 
-## Language settings
+## Omakey Settings
 
-**Language settings…** opens the settings for the current language (or the
-last one, while you're in English). With more than one extra language, tabs
-at the top switch between them.
+**Omakey Settings…** in the menu (or `omarchy-shell sonlndv.vietkey settings`)
+opens one dashboard for everything. Changes apply straight away.
 
-**Vietnamese** keeps VietKey's Unikey window. Changes apply and save
+- **Languages** (left): your languages in Ctrl+Shift order, with a check on
+  the active one. **↑/↓** move a language in the fcitx5 group, which changes
+  the cycle order (English always stays first). **󰍴** removes it from the
+  group; packages stay installed. English can't be moved or removed.
+  **Add language…** opens the picker in the menu; installing may ask to
+  restart fcitx5, and always asks first.
+- **Options** (right), for the language selected on the left:
+  - Vietnamese: the Unikey page, below.
+  - A language with several engines in your group (e.g. Mozc and Anthy for
+    Japanese, Pinyin and Shuangpin for Chinese): pick the engine.
+  - Other engines: a link to `fcitx5-configtool`.
+  - Keyboard layouts (Arabic, Russian, …): just the layout; nothing to set.
+- **General** (bottom): the Ctrl+Shift order, and whether the mode (Telex,
+  Pinyin, …) shows next to the badge (the same as `omarchy bar set
+  sonlndv.vietkey showModeName …`).
+
+Keys: ↑/↓ select, Ctrl+↑/↓ move, Enter switches to the language, Delete
+removes it, Tab (or →) goes to the options where the arrows move and
+Enter/Space picks, Esc closes.
+
+**Vietnamese** keeps VietKey's Unikey page. Changes apply and save
 immediately.
 
 - **Kiểu gõ · Input method:** Telex or VNI
@@ -152,9 +174,8 @@ immediately.
   - Cho phép gõ dấu tự do · type tone marks anywhere in the word
   - Xử lý W ở đầu từ · W at the start of a word becomes Ư
 
-**Other languages** don't have an Omakey page yet; the window links to
-`fcitx5-configtool` (install it if you don't have it). Per-engine pages are a
-follow-up.
+**Other engines** don't have an Omakey page yet; the dashboard links to
+`fcitx5-configtool` (install it if you don't have it).
 
 ### Telex
 
@@ -194,8 +215,8 @@ your fcitx5 group are kept as they are. Run it with `--dry-run` first to see
 the exact change.
 
 Until you run it, the old binding keeps working (it calls `fcitx5-remote -t`
-directly); the new one goes through Omakey so it can return to the *last*
-language rather than always Vietnamese.
+directly); the new one goes through Omakey so it cycles through all your
+languages in order.
 
 ## Bar options
 
@@ -210,13 +231,13 @@ omarchy bar set sonlndv.vietkey fallbackRefreshMs 15000 --json  # slower fallbac
 The plugin is still addressed by its id, `sonlndv.vietkey`:
 
 ```sh
-omarchy-shell sonlndv.vietkey toggle          # English <-> last language (what Ctrl+Shift runs)
+omarchy-shell sonlndv.vietkey toggle          # next language in order (what Ctrl+Shift runs)
 omarchy-shell sonlndv.vietkey english         # English
 omarchy-shell sonlndv.vietkey setLanguage ja  # a language by id: vi ja ko zh-Hans zh-Hant th
 omarchy-shell sonlndv.vietkey setMode VNI     # Vietnamese, VNI (or Telex)
 omarchy-shell sonlndv.vietkey addLanguage     # open the language picker
 omarchy-shell sonlndv.vietkey togglePanel     # open / close the menu
-omarchy-shell sonlndv.vietkey settings        # open / close Language settings
+omarchy-shell sonlndv.vietkey settings        # open / close Omakey Settings
 ```
 
 ## Troubleshooting

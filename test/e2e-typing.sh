@@ -289,36 +289,81 @@ run_case "TH libthai: one word (ฟ)" "libthai" \
   2000 "ฟ"
 
 echo
-echo "== Catalogue.toggleTarget switching test (3+ languages) =="
+echo "== Catalogue.cycleTarget switching test (3+ languages) =="
 # Pure JS logic test, no fcitx5 needed: node --test already covers
-# toggleTarget, but the brief explicitly asks for this as part of the e2e
-# run, so re-assert it here against a live Catalogue.mjs import.
-TOGGLE_OUT="$("$PY" - <<'PYEOF' 2>&1 || true
-print("(toggle logic is JS; see node check below)")
-PYEOF
-)"
+# cycleTarget, but re-assert it here against a live Catalogue.mjs import.
+# EN, VI, JA, KO: Ctrl+Shift walks the whole cycle and wraps to English.
 NODE_OUT="$(cd "$SCRIPT_DIR/.." && node --input-type=module -e '
 import * as C from "./Catalogue.mjs";
 const engines = ["keyboard-us", "unikey", "mozc", "hangul"];
-const checks = [
-  [C.toggleTarget("keyboard-us", ["unikey", "mozc"], engines), "mozc"],
-  [C.toggleTarget("mozc", ["unikey", "mozc"], engines), "keyboard-us"],
-  [C.toggleTarget("hangul", [], engines), "keyboard-us"],
-];
+const want = ["unikey", "mozc", "hangul", "keyboard-us"];
+let engine = "keyboard-us";
 let ok = true;
-for (const [got, want] of checks) {
-  if (got !== want) { ok = false; console.log("MISMATCH got=" + got + " want=" + want); }
+for (const next of want) {
+  const got = C.cycleTarget(engine, engines);
+  if (got !== next) { ok = false; console.log("MISMATCH from=" + engine + " got=" + got + " want=" + next); }
+  engine = got;
 }
-console.log(ok ? "TOGGLE_OK" : "TOGGLE_FAIL");
+if (C.cycleTarget("keyboard-us", ["keyboard-us"]) !== "") { ok = false; console.log("MISMATCH English only should be a no-op"); }
+console.log("cycle: keyboard-us -> " + want.join(" -> "));
+console.log(ok ? "CYCLE_OK" : "CYCLE_FAIL");
 ' 2>&1)"
 echo "$NODE_OUT"
-if echo "$NODE_OUT" | grep -q "TOGGLE_OK"; then
-  echo "PASS  Catalogue.toggleTarget picks the right engine with 3+ languages enabled"
+if echo "$NODE_OUT" | grep -q "CYCLE_OK"; then
+  echo "PASS  Catalogue.cycleTarget cycles EN -> VI -> JA -> KO -> EN"
   PASS=$((PASS + 1))
 else
-  echo "FAIL  Catalogue.toggleTarget mismatch (see output above)"
+  echo "FAIL  Catalogue.cycleTarget mismatch (see output above)"
   FAIL=$((FAIL + 1))
-  FAILED_NAMES+=("toggleTarget")
+  FAILED_NAMES+=("cycleTarget")
+fi
+
+echo
+echo "== Settings dashboard reorder over D-Bus (private fcitx5) =="
+# The dashboard's up/down buttons call SetInputMethodGroupInfo with
+# Catalogue.setGroupArgs(Catalogue.moveLanguage(...)). Make that exact call
+# against the private fcitx5, read the group back, and check fcitx5 now holds
+# the new order (Japanese one step up), nothing was dropped, English kept its
+# slot, and the cycle follows the new order.
+fcitx_private() {
+  busctl --address="$BUS_ADDR" call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 "$@"
+}
+BEFORE="$(fcitx_private InputMethodGroupInfo s Default 2>>"$WORK/err.log")"
+mapfile -t SET_ARGS < <(cd "$SCRIPT_DIR/.." && BEFORE="$BEFORE" node --input-type=module -e '
+import * as C from "./Catalogue.mjs";
+const info = C.parseGroupInfo(process.env.BEFORE);
+for (const arg of C.setGroupArgs("Default", info.layout, C.moveLanguage(info.items, "ja", -1))) console.log(arg);
+')
+fcitx_private "${SET_ARGS[@]}" >/dev/null 2>>"$WORK/err.log"
+AFTER="$(fcitx_private InputMethodGroupInfo s Default 2>>"$WORK/err.log")"
+REORDER_OUT="$(cd "$SCRIPT_DIR/.." && BEFORE="$BEFORE" AFTER="$AFTER" node --input-type=module -e '
+import * as C from "./Catalogue.mjs";
+const before = C.parseGroupInfo(process.env.BEFORE).items;
+const after = C.parseGroupInfo(process.env.AFTER).items;
+const want = C.moveLanguage(before, "ja", -1);
+const ids = items => C.languagesInGroup(items).map(l => l.id).join(" ");
+console.log("before: " + ids(before));
+console.log("after:  " + ids(after));
+let ok = JSON.stringify(after) === JSON.stringify(want);
+if (!ok) console.log("MISMATCH want: " + ids(want));
+if (after.length !== before.length) { ok = false; console.log("MISMATCH item count " + before.length + " -> " + after.length); }
+if (after[0].name !== before[0].name || !C.isEnglishEngine(after[0].name)) { ok = false; console.log("MISMATCH English moved"); }
+const engines = after.map(i => i.name);
+const langs = C.languagesInGroup(after);
+const ja = langs.findIndex(l => l.id === "ja");
+const prev = langs[ja - 1].engines[0];
+if (C.cycleTarget(prev, engines) !== "mozc") { ok = false; console.log("MISMATCH cycle from " + prev); }
+console.log(ok ? "REORDER_OK" : "REORDER_FAIL");
+' 2>&1)"
+echo "$REORDER_OUT"
+if echo "$REORDER_OUT" | grep -q "REORDER_OK"; then
+  echo "PASS  dashboard reorder writes the fcitx5 group and the cycle follows it"
+  PASS=$((PASS + 1))
+else
+  echo "FAIL  dashboard reorder (see output above)"
+  [[ -s "$WORK/err.log" ]] && sed 's/^/        stderr: /' "$WORK/err.log"
+  FAIL=$((FAIL + 1))
+  FAILED_NAMES+=("reorder")
 fi
 
 echo

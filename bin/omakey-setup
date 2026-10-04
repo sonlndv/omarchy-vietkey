@@ -48,12 +48,12 @@ other    -   fcitx5-m17n            -
 # catalogue:end
 
 BLOCK='-- omakey:start
--- Omakey (plugin sonlndv.vietkey): Ctrl+Shift, either order or side, switches
--- English <-> the last non-English language. Fires on release and lets the
--- keys through, so Ctrl+Shift+<key> still works. Falls back to fcitx5'"'"'s own
--- toggle when the shell is not running.
+-- Omakey (plugin sonlndv.vietkey): Ctrl+Shift, either order or side, cycles
+-- through every enabled language in fcitx5 group order (EN -> VI -> JA -> EN).
+-- Fires on release and lets the keys through, so Ctrl+Shift+<key> still
+-- works. Falls back to fcitx5'"'"'s own toggle when the shell is not running.
 for _, key in ipairs({ "Shift_L", "Shift_R", "Control_L", "Control_R" }) do
-  o.bind("CTRL + SHIFT + " .. key, "Omakey: English / last language", "omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t", { release = true, non_consuming = true })
+  o.bind("CTRL + SHIFT + " .. key, "Omakey: next language", "omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t", { release = true, non_consuming = true })
 end
 -- omakey:end'
 
@@ -473,7 +473,8 @@ case $MODE in
     add_engines
     update_bindings
     step "Done"
-    note "Ctrl+Shift switches English <-> your last language; click the Omakey badge for the menu."
+    note "Ctrl+Shift cycles through your languages in order; click the Omakey badge for the menu."
+    note "Reorder, add and remove languages in the menu's Omakey Settings…"
     ;;
 esac
 

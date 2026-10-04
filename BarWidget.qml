@@ -19,7 +19,9 @@ import "Catalogue.mjs" as Catalogue
 // outside Omakey (fcitx5's own hotkeys or config tool), which send no event.
 //
 // Left click opens the menu; right click and Ctrl+Shift (bound in Hyprland to
-// the `toggle` IPC call) flip English <-> the last non-English language.
+// the `toggle` IPC call) cycle through every enabled language in fcitx5 group
+// order. The Omakey Settings dashboard (SettingsWindow.qml) reorders, adds
+// and removes languages and holds per-language options.
 Panel {
   id: root
   moduleName: "sonlndv.vietkey"
@@ -34,13 +36,13 @@ Panel {
   property bool running: true
   property string current: ""                 // fcitx5 engine name, e.g. "unikey"
   property var groupItems: []                 // [{ name, layout }] in fcitx5 order
-  property var history: []                    // recent non-English engines, newest last
+  property string groupName: ""               // fcitx5 group, e.g. "Default"
+  property string groupLayout: ""             // the group's default layout, e.g. "us"
   readonly property var languages: Catalogue.languagesInGroup(groupItems)
   readonly property var groupEngines: groupItems.map(function(item) { return item.name })
   readonly property var currentLanguage: Catalogue.languageForEngine(current)
   readonly property bool english: currentLanguage.id === Catalogue.ENGLISH
-  readonly property string lastEngine: Catalogue.lastNonEnglish(history, groupEngines)
-  readonly property var lastLanguage: lastEngine ? Catalogue.languageForEngine(lastEngine) : null
+  readonly property string cycleHint: Catalogue.cycleHint(languages)
 
   // Unikey's live options, e.g. { InputMethod: "Telex", SpellCheck: "True" }.
   property var config: ({ InputMethod: "Telex" })
@@ -54,11 +56,15 @@ Panel {
   property string view: "menu"
   property var picks: []
 
-  readonly property bool showModeName: setting("showModeName", true) !== false
+  // The dashboard's toggle sets the override so the badge follows at once;
+  // the persisted value is written with `omarchy bar set` (setShowModeName).
+  property var showModeNameOverride: null
+  readonly property bool showModeName: showModeNameOverride !== null ? showModeNameOverride
+    : setting("showModeName", true) !== false
   readonly property color foreground: bar ? bar.barForeground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  readonly property var rows: buildRows(view, languages, current, viMode, picks, lastLanguage, running)
+  readonly property var rows: buildRows(view, languages, current, viMode, picks, cycleHint, running)
 
   property int cursorIndex: 0
   // Hide the initial highlight until keyboard navigation or hover begins.
@@ -72,7 +78,7 @@ Panel {
 
   // Menu rows in display order. Keyboard navigation skips separators, hints
   // and disabled rows.
-  function buildRows(view, languages, current, viMode, picks, lastLanguage, running) {
+  function buildRows(view, languages, current, viMode, picks, cycleHint, running) {
     var out = []
     var enabledIds = languages.map(function(l) { return l.id })
 
@@ -105,6 +111,10 @@ Panel {
       }
       var fresh = picks.filter(function(id) { return enabledIds.indexOf(id) < 0 })
       out.push({ kind: "separator" })
+      // Engines from new packages only load after a fcitx5 restart, which
+      // omakey-setup asks about first; layouts never need one.
+      if (fresh.some(function(id) { var entry = Catalogue.byId(id); return !!entry && !!entry.package }))
+        out.push({ kind: "hint", label: "Installing may ask to restart fcitx5" })
       out.push({ kind: "action", action: "install", icon: "󰏗", disabled: fresh.length === 0,
         label: fresh.length === 0 ? "Nothing new selected" : "Install and add (" + fresh.length + ")…" })
       out.push({ kind: "action", action: "back", icon: "󰁍", label: "Back" })
@@ -145,11 +155,10 @@ Panel {
     } else {
       out.push({ kind: "action", action: "add", icon: "󰐕", label: "Add language…" })
       out.push({ kind: "action", action: "remove", icon: "󰍴", label: "Remove language…" })
-      out.push({ kind: "action", action: "settings", icon: "󰒓", label: "Language settings…" })
     }
+    out.push({ kind: "action", action: "settings", icon: "󰒓", label: "Omakey Settings…" })
     out.push({ kind: "separator" })
-    out.push({ kind: "hint", label: lastLanguage ? "Ctrl+Shift: English ↔ " + lastLanguage.name
-      : "Ctrl+Shift switches language" })
+    out.push({ kind: "hint", label: cycleHint })
     return out
   }
 
@@ -220,16 +229,14 @@ Panel {
   function switchTo(engine) {
     if (!engine) return
     current = engine
-    history = Catalogue.rememberEngine(history, engine)
     run(["fcitx5-remote", "-s", engine])
   }
 
-  // English <-> the last non-English language, keeping its mode. With only
-  // English in the group there is nothing to switch to, so offer the picker.
+  // The next language in group order, wrapping back to English. With only
+  // English in the group there is nothing to cycle to, so it does nothing.
   function toggle() {
-    var target = Catalogue.toggleTarget(current, history, groupEngines)
+    var target = Catalogue.cycleTarget(current, groupEngines)
     if (target) switchTo(target)
-    else openPicker()
   }
 
   function setEnglish() {
@@ -252,7 +259,6 @@ Panel {
   function setMode(mode) {
     if (mode !== "Telex" && mode !== "VNI") return
     current = "unikey"
-    history = Catalogue.rememberEngine(history, "unikey")
     setOption("InputMethod", mode, "fcitx5-remote -s unikey")
   }
 
@@ -282,18 +288,46 @@ Panel {
   function removeLanguage(engines) {
     if (!engines || engines.length === 0) return
     if (engines.indexOf(current) >= 0) setEnglish()
-    history = history.filter(function(engine) { return engines.indexOf(engine) < 0 })
     run(["bash", setupPath, "--remove", engines.join(",")])
   }
 
-  // Settings for a language id; "" means the current language, or the last
-  // non-English one while English is active.
+  // Dashboard reorder: one step up (-1) or down (+1) in the fcitx5 group,
+  // which is the Ctrl+Shift cycle order. English never moves and nothing is
+  // dropped (Catalogue.moveLanguage). Applies straight away over D-Bus, the
+  // same SetInputMethodGroupInfo call omakey-setup's write_group makes; no
+  // fcitx5 restart is needed.
+  function moveLanguage(id, delta) {
+    if (!running || !groupName) return
+    var next = Catalogue.moveLanguage(groupItems, id, delta)
+    if (JSON.stringify(next) === JSON.stringify(groupItems)) return
+    groupItems = next
+    run(root.busctl.concat(Catalogue.setGroupArgs(groupName, groupLayout, next)))
+  }
+
+  // Persists through the documented bar CLI (see README "Bar options").
+  function setShowModeName(on) {
+    showModeNameOverride = !!on
+    Util.execArgv(["omarchy", "bar", "set", root.moduleName, "showModeName", on ? "true" : "false", "--json"])
+  }
+
+  // Opens the Omakey Settings dashboard on a language id; "" means the
+  // current language.
   function openSettings(id) {
-    var target = id || (!english ? currentLanguage.id : lastLanguage ? lastLanguage.id : "")
-    var known = languages.some(function(l) { return l.id === target })
-    settingsLanguage = known ? target : (languages.length > 1 ? languages[1].id : Catalogue.ENGLISH)
+    selectSettingsLanguage(id || currentLanguage.id)
+    refresh()
     refreshConfig()
     settingsOpen = true
+  }
+
+  function selectSettingsLanguage(id) {
+    var known = languages.some(function(l) { return l.id === id })
+    settingsLanguage = known ? id : Catalogue.ENGLISH
+  }
+
+  // The dashboard's "Add language…": hand over to the menu's picker.
+  function addFromSettings() {
+    closeSettings()
+    openPicker()
   }
 
   function closeSettings() {
@@ -344,7 +378,8 @@ Panel {
         if (!state.running) return
         root.current = state.current
         if (state.items.length > 0) root.groupItems = state.items
-        root.history = Catalogue.rememberEngine(root.history, state.current)
+        root.groupName = state.group
+        root.groupLayout = state.layout
       }
     }
   }
@@ -431,8 +466,7 @@ Panel {
     fixedWidth: iconRow.implicitWidth + Style.space(12)
     tooltipText: root.opened ? "" : "Omakey · "
       + (root.running ? root.currentLanguage.name + (root.modeText ? " (" + root.modeText + ")" : "") : "fcitx5 isn't running")
-      + "\nClick: menu · Right click / Ctrl+Shift: English ↔ "
-      + (root.lastLanguage ? root.lastLanguage.name : "last language")
+      + "\nClick: menu · Right click: next language\n" + root.cycleHint
     onPressed: function(mouseButton) {
       if (mouseButton === Qt.RightButton) root.toggle()
       else root.opened ? root.close() : root.open()
@@ -465,15 +499,12 @@ Panel {
     }
   }
 
-  // ------------------------------------------------------------- settings
+  // ---------------------------------------------------- settings dashboard
 
   LazyLoader {
     active: root.settingsOpen
     SettingsWindow {
       host: root
-      language: Catalogue.byId(root.settingsLanguage) || Catalogue.languageForEngine("")
-      languages: root.languages
-      lastLanguage: root.lastLanguage
       fontFamily: root.fontFamily
       screen: button.QsWindow.window ? button.QsWindow.window.screen : null
     }
