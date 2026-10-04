@@ -38,6 +38,43 @@ export const OTHER = {
   package: M17N_PACKAGE, engines: [], modes: []
 }
 
+// LAYOUT languages: an XKB layout fcitx5 already understands as its own
+// "keyboard-<xkb>" engine. No package to install, nothing to restart fcitx5
+// for — the layout just needs appending to the group. `xkbCode` is the rules
+// file code from /usr/share/X11/xkb/rules/base.lst; `engines[0]` is always
+// "keyboard-" + xkbCode. Hindi's variant may need to be more specific than
+// the bare "in" layout (its base.lst default is Devanagari) — flagged for
+// Jarvis/Son to confirm on real hardware; keeping bare "in" for v1.
+export const LAYOUT_LANGUAGES = [
+  { id: "ar-kbd", badge: "AR", name: "Arabic", nativeName: "العربية",
+    package: "", engines: ["keyboard-ara"], modes: [], xkbCode: "ara" },
+  { id: "fa-kbd", badge: "FA", name: "Persian", nativeName: "فارسی",
+    package: "", engines: ["keyboard-ir"], modes: [], xkbCode: "ir" },
+  { id: "he-kbd", badge: "HE", name: "Hebrew", nativeName: "עברית",
+    package: "", engines: ["keyboard-il"], modes: [], xkbCode: "il" },
+  { id: "ru-kbd", badge: "RU", name: "Russian", nativeName: "Русский",
+    package: "", engines: ["keyboard-ru"], modes: [], xkbCode: "ru" },
+  { id: "uk-kbd", badge: "UK", name: "Ukrainian", nativeName: "Українська",
+    package: "", engines: ["keyboard-ua"], modes: [], xkbCode: "ua" },
+  { id: "el-kbd", badge: "EL", name: "Greek", nativeName: "Ελληνικά",
+    package: "", engines: ["keyboard-gr"], modes: [], xkbCode: "gr" },
+  { id: "hi-kbd", badge: "HI", name: "Hindi", nativeName: "हिन्दी",
+    package: "", engines: ["keyboard-in"], modes: [], xkbCode: "in" },
+  // Alternative to fcitx5-libthai when that package isn't wanted: the bare
+  // Thai XKB layout. Distinct id from the "th" (libthai) LANGUAGES entry —
+  // same badge is fine, the picker shows both with different labels.
+  { id: "th-kbd", badge: "TH", name: "Thai (keyboard layout)", nativeName: "ไทย",
+    package: "", engines: ["keyboard-th"], modes: [], xkbCode: "th" }
+]
+
+// The picker's catch-all: any other XKB layout from base.lst. No fixed
+// engine; omakey-setup resolves "keyboard-<code>" from the code the user
+// picks and appends it like any other LAYOUT language.
+export const OTHER_LAYOUT = {
+  id: "other-layout", badge: "", name: "Other keyboard layout…", nativeName: "",
+  package: "", engines: [], modes: []
+}
+
 const ENGINE_LABELS = {
   unikey: "Unikey", mozc: "Mozc", anthy: "Anthy", skk: "SKK", kkc: "KKC",
   hangul: "Hangul", pinyin: "Pinyin", shuangpin: "Shuangpin", wbx: "Wubi",
@@ -46,13 +83,22 @@ const ENGINE_LABELS = {
 
 export function byId(id) {
   if (id === OTHER.id) return OTHER
+  if (id === OTHER_LAYOUT.id) return OTHER_LAYOUT
   for (const language of LANGUAGES)
+    if (language.id === id) return language
+  for (const language of LAYOUT_LANGUAGES)
     if (language.id === id) return language
   return null
 }
 
+// Only "keyboard-us" and the user's own base layout (any keyboard-<code>
+// Omakey didn't add as a LAYOUT language) count as English. A LAYOUT
+// language's own engine — keyboard-ara, keyboard-ru, keyboard-il, … —
+// never does, even though it's still a "keyboard-*" engine name.
 export function isEnglishEngine(engine) {
-  return typeof engine === "string" && engine.indexOf("keyboard-") === 0
+  if (typeof engine !== "string" || engine.indexOf("keyboard-") !== 0) return false
+  const code = engine.slice("keyboard-".length)
+  return !LAYOUT_LANGUAGES.some(language => language.xkbCode === code)
 }
 
 export function engineLabel(engine) {
@@ -67,6 +113,8 @@ export function engineLabel(engine) {
 export function languageForEngine(engine) {
   if (!engine || isEnglishEngine(engine)) return LANGUAGES[0]
   for (const language of LANGUAGES)
+    if (language.engines.indexOf(engine) >= 0) return language
+  for (const language of LAYOUT_LANGUAGES)
     if (language.engines.indexOf(engine) >= 0) return language
   const m17n = /^m17n_([^_]+)_/.exec(engine)
   const code = m17n ? m17n[1] : engine

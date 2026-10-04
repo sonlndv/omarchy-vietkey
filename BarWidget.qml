@@ -90,6 +90,19 @@ Panel {
           disabled: entry.id === Catalogue.ENGLISH || have
         })
       }
+      out.push({ kind: "separator" })
+      out.push({ kind: "hint", label: "Keyboard layouts (no package to install)" })
+      var layoutCatalogue = Catalogue.LAYOUT_LANGUAGES.concat([Catalogue.OTHER_LAYOUT])
+      for (var k = 0; k < layoutCatalogue.length; k++) {
+        var lentry = layoutCatalogue[k]
+        var lhave = enabledIds.indexOf(lentry.id) >= 0
+        out.push({
+          kind: "pick", langId: lentry.id, glyph: lentry.badge || "+",
+          label: displayName(lentry) + (lhave ? " (added)" : ""),
+          checked: lhave || picks.indexOf(lentry.id) >= 0,
+          disabled: lhave
+        })
+      }
       var fresh = picks.filter(function(id) { return enabledIds.indexOf(id) < 0 })
       out.push({ kind: "separator" })
       out.push({ kind: "action", action: "install", icon: "󰏗", disabled: fresh.length === 0,
@@ -571,6 +584,8 @@ Panel {
         anchors.verticalCenter: parent.verticalCenter
         x: Style.space(rowItem.sub ? 34 : 6)
         spacing: Style.space(6)
+        LayoutMirroring.enabled: false
+        LayoutMirroring.childrenInherit: false
 
         Text {
           width: Style.space(14)
@@ -620,6 +635,8 @@ Panel {
           opacity: rowItem.sub ? 0.8 : 1
           font.family: root.fontFamily
           font.pixelSize: rowItem.sub ? Style.font.caption : Style.font.body
+          LayoutMirroring.enabled: false
+          horizontalAlignment: Text.AlignLeft
         }
       }
 

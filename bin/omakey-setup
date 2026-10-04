@@ -23,7 +23,9 @@ BINDINGS="$CONFIG_HOME/hypr/bindings.lua"
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 # Columns: id, badge, Arch package, fcitx5 engine ("-" = none). Kept in step
-# with Catalogue.mjs by test/catalogue.test.mjs.
+# with Catalogue.mjs by test/catalogue.test.mjs. The "-kbd" rows below are
+# XKB keyboard layouts fcitx5 already knows as keyboard-<xkb>: no package,
+# "keyboard-<xkb>" engine built straight from the id's xkb code.
 # catalogue:start
 CATALOGUE='
 en       EN  -                      keyboard-us
@@ -33,6 +35,14 @@ ko       KO  fcitx5-hangul          hangul
 zh-Hans  ZH  fcitx5-chinese-addons  pinyin
 zh-Hant  ZH  fcitx5-chewing         chewing
 th       TH  fcitx5-libthai         libthai
+ar-kbd   AR  -                      keyboard-ara
+fa-kbd   FA  -                      keyboard-ir
+he-kbd   HE  -                      keyboard-il
+ru-kbd   RU  -                      keyboard-ru
+uk-kbd   UK  -                      keyboard-ua
+el-kbd   EL  -                      keyboard-gr
+hi-kbd   HI  -                      keyboard-in
+th-kbd   TH  -                      keyboard-th
 other    -   fcitx5-m17n            -
 '
 # catalogue:end
@@ -102,6 +112,12 @@ fi
 catalogue_field() {
   awk -v id="$1" -v col="$2" 'NF == 4 && $1 == id { print $col; exit }' <<<"$CATALOGUE"
 }
+
+# "Other keyboard layout…" picks come through as layout:<xkb-code> (e.g.
+# layout:de) instead of a catalogue id — there's no fixed row for every XKB
+# layout. Engine is always keyboard-<code>, no package.
+is_adhoc_layout() { [[ $1 == layout:* ]]; }
+adhoc_layout_engine() { printf 'keyboard-%s\n' "${1#layout:}"; }
 
 # Read-only fcitx5 calls never start fcitx5 (--auto-start=no).
 fcitx() {
@@ -268,6 +284,7 @@ install_packages() {
   step "Packages"
   local id pkg missing=()
   for id in "${LANGS[@]}"; do
+    is_adhoc_layout "$id" && continue
     pkg=$(catalogue_field "$id" 3)
     if [[ -z $pkg ]]; then
       say "omakey-setup: unknown language '$id'. Known: $(awk 'NF == 4 { printf "%s ", $1 }' <<<"$CATALOGUE")" >&2
@@ -326,6 +343,10 @@ add_engines() {
   fi
   local id engine wanted=() unloaded=() available
   for id in "${LANGS[@]}"; do
+    if is_adhoc_layout "$id"; then
+      wanted+=("$(adhoc_layout_engine "$id")")
+      continue
+    fi
     engine=$(catalogue_field "$id" 4)
     [[ $engine == - ]] || wanted+=("$engine")
   done

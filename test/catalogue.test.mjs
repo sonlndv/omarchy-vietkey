@@ -23,6 +23,50 @@ test("badge codes for every catalogue entry", () => {
   assert.equal(C.badgeFor("m17n_hi_inscript"), "HI")
 })
 
+test("layout languages: badge, nativeName, keyboard-<xkb> engine, no package", () => {
+  const rows = Object.fromEntries(C.LAYOUT_LANGUAGES.map(l => [l.id, [l.badge, l.engines[0], l.package]]))
+  assert.deepEqual(rows, {
+    "ar-kbd": ["AR", "keyboard-ara", ""],
+    "fa-kbd": ["FA", "keyboard-ir", ""],
+    "he-kbd": ["HE", "keyboard-il", ""],
+    "ru-kbd": ["RU", "keyboard-ru", ""],
+    "uk-kbd": ["UK", "keyboard-ua", ""],
+    "el-kbd": ["EL", "keyboard-gr", ""],
+    "hi-kbd": ["HI", "keyboard-in", ""],
+    "th-kbd": ["TH", "keyboard-th", ""]
+  })
+  for (const language of C.LAYOUT_LANGUAGES) {
+    assert.ok(language.nativeName.length > 0, language.id + " needs a nativeName")
+    assert.equal(C.badgeFor(language.engines[0]), language.badge)
+  }
+  assert.equal(C.OTHER_LAYOUT.package, "")
+  assert.equal(C.OTHER_LAYOUT.engines.length, 0)
+})
+
+test("layout language engines are never treated as English (the keyboard-* bug)", () => {
+  for (const language of C.LAYOUT_LANGUAGES) {
+    const engine = language.engines[0]
+    assert.equal(C.isEnglishEngine(engine), false, engine + " must not be English")
+    assert.equal(C.languageForEngine(engine).id, language.id)
+    assert.notEqual(C.badgeFor(engine), "EN")
+  }
+  // The user's own base layout (not one of ours) still counts as English.
+  assert.equal(C.isEnglishEngine("keyboard-us"), true)
+  assert.equal(C.isEnglishEngine("keyboard-de"), true)
+})
+
+test("layout languages merge into the group and keep order like any other language", () => {
+  const existing = group("keyboard-us", "unikey")
+  const merged = C.mergeGroup(existing, ["keyboard-ara", "keyboard-ru"])
+  assert.deepEqual(merged.map(i => i.name), ["keyboard-us", "unikey", "keyboard-ara", "keyboard-ru"])
+  // Existing entries are untouched and not reordered.
+  assert.deepEqual(merged.slice(0, 2), existing)
+  // Idempotent: merging again adds nothing new.
+  assert.deepEqual(C.mergeGroup(merged, ["keyboard-ara"]), merged)
+  const langs = C.languagesInGroup(group("keyboard-us", "keyboard-ara", "keyboard-il"))
+  assert.deepEqual(langs.map(l => l.id), ["en", "ar-kbd", "he-kbd"])
+})
+
 test("catalogue packages and engines match SPEC §2", () => {
   const rows = Object.fromEntries(C.LANGUAGES.map(l => [l.id, [l.package, l.engines[0]]]))
   assert.deepEqual(rows, {
@@ -144,6 +188,7 @@ test("bin/omakey-setup's catalogue copy matches Catalogue.mjs", () => {
   const block = script.split("# catalogue:start")[1].split("# catalogue:end")[0]
   const rows = block.split("\n").map(l => l.trim().split(/\s+/)).filter(r => r.length === 4)
   const expected = C.LANGUAGES.map(l => [l.id, l.badge, l.package || "-", l.engines[0]])
+    .concat(C.LAYOUT_LANGUAGES.map(l => [l.id, l.badge, l.package || "-", l.engines[0]]))
     .concat([[C.OTHER.id, "-", C.OTHER.package, "-"]])
   assert.deepEqual(rows, expected)
 })
