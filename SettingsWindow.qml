@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -5,15 +6,20 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 
-// Unikey-style settings: input method, charset and typing options.
-// Every change applies (and persists in fcitx5) immediately; Esc, the scrim or
-// Close dismiss it.
+// Omakey language settings. Vietnamese gets the Unikey page (input method,
+// charset, typing options); every change applies and persists in fcitx5
+// immediately. Other engines point to fcitx5's own configuration tool for
+// now. Esc, the scrim or Close dismiss it.
 PanelWindow {
   id: win
 
-  property var host: null           // BarWidget: config, setOption(), close
+  property var host: null           // BarWidget: config, setOption(), openSettings(), close
+  property var language: null       // Catalogue entry being shown
+  property var languages: []        // enabled languages, English first
+  property var lastLanguage: null   // Ctrl+Shift target from English
   property string fontFamily: Style.font.family
 
+  readonly property bool vietnamese: !!language && language.id === "vi"
   readonly property var config: host ? host.config : ({})
   readonly property color text: Color.popups.text
   readonly property color surface: Color.popups.background
@@ -41,7 +47,7 @@ PanelWindow {
   anchors { top: true; bottom: true; left: true; right: true }
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
-  WlrLayershell.namespace: "vietkey-settings"
+  WlrLayershell.namespace: "omakey-settings"
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
@@ -83,7 +89,7 @@ PanelWindow {
 
           Badge {
             size: Style.space(26)
-            glyph: "VI"
+            glyph: win.language ? win.language.badge : "EN"
             fill: win.accent
             ink: win.surface
             fontFamily: win.fontFamily
@@ -92,14 +98,15 @@ PanelWindow {
           ColumnLayout {
             spacing: 0
             Text {
-              text: "VietKey"
+              text: "Omakey"
               color: win.text
               font.family: win.fontFamily
               font.pixelSize: Style.font.title
               font.bold: true
             }
             Text {
-              text: "Bộ gõ tiếng Việt · Vietnamese keyboard"
+              text: win.vietnamese ? "Bộ gõ tiếng Việt · Vietnamese keyboard"
+                : win.language ? win.language.name + " · " + win.language.engines.join(", ") : ""
               color: win.text
               opacity: 0.6
               font.family: win.fontFamily
@@ -108,10 +115,47 @@ PanelWindow {
           }
         }
 
+        // ---------------------------------------------------- languages
+        Flow {
+          visible: win.languages.length > 2
+          Layout.fillWidth: true
+          spacing: Style.space(6)
+          Repeater {
+            model: win.languages.slice(1)
+            Chip {
+              required property var modelData
+              label: modelData.badge + "  " + modelData.name
+              checked: !!win.language && win.language.id === modelData.id
+              onClicked: win.host.openSettings(modelData.id)
+            }
+          }
+        }
+
+        // ------------------------------------------------ other engines
+        Text {
+          visible: !win.vietnamese
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: !win.language || win.language.id === "en"
+            ? "English types with your keyboard layout; there is nothing to set here. Add a language from the Omakey menu."
+            : "Omakey has no settings page of its own for " + win.language.name
+              + " yet. Its options live in fcitx5's configuration tool (fcitx5-configtool)."
+          color: win.text
+          font.family: win.fontFamily
+          font.pixelSize: Style.font.body
+        }
+
+        Chip {
+          visible: !win.vietnamese && !!win.language && win.language.id !== "en"
+          label: "Open fcitx5 settings…"
+          onClicked: win.host.openFcitxConfig()
+        }
+
         // ------------------------------------------------- input method
-        SectionTitle { vi: "Kiểu gõ"; en: "Input method" }
+        SectionTitle { visible: win.vietnamese; vi: "Kiểu gõ"; en: "Input method" }
 
         Flow {
+          visible: win.vietnamese
           Layout.fillWidth: true
           spacing: Style.space(6)
           Repeater {
@@ -126,6 +170,7 @@ PanelWindow {
         }
 
         Text {
+          visible: win.vietnamese
           Layout.topMargin: -Style.space(8)
           text: win.hintFor(win.config.InputMethod)
           color: win.text
@@ -135,9 +180,10 @@ PanelWindow {
         }
 
         // ------------------------------------------------------ charset
-        SectionTitle { vi: "Bảng mã"; en: "Charset" }
+        SectionTitle { visible: win.vietnamese; vi: "Bảng mã"; en: "Charset" }
 
         Flow {
+          visible: win.vietnamese
           Layout.fillWidth: true
           spacing: Style.space(6)
           Repeater {
@@ -152,9 +198,10 @@ PanelWindow {
         }
 
         // ------------------------------------------------------ options
-        SectionTitle { vi: "Tuỳ chọn"; en: "Options" }
+        SectionTitle { visible: win.vietnamese; vi: "Tuỳ chọn"; en: "Options" }
 
         ColumnLayout {
+          visible: win.vietnamese
           Layout.fillWidth: true
           spacing: Style.space(2)
           Repeater {
@@ -177,7 +224,8 @@ PanelWindow {
 
           Text {
             Layout.fillWidth: true
-            text: "Chuyển Anh ↔ Việt · Switch: Ctrl+Shift"
+            text: win.vietnamese ? "Chuyển Anh ↔ Việt · Switch: Ctrl+Shift"
+              : "Ctrl+Shift: English ↔ " + (win.lastLanguage ? win.lastLanguage.name : "last language")
             color: win.text
             opacity: 0.6
             font.family: win.fontFamily
@@ -185,7 +233,7 @@ PanelWindow {
           }
 
           Chip {
-            label: "Đóng · Close"
+            label: win.vietnamese ? "Đóng · Close" : "Close"
             checked: true
             onClicked: win.host.closeSettings()
           }

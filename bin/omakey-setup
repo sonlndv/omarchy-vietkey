@@ -1,0 +1,462 @@
+#!/bin/bash
+# Omakey setup: install input-method engines, append them to the fcitx5 group
+# and bind Ctrl+Shift in Hyprland. Upgrades a VietKey install in place (same
+# plugin id, sonlndv.vietkey).
+#
+#   omakey-setup                    English + Vietnamese (first run / upgrade)
+#   omakey-setup --add ja,ko        add languages by catalogue id (see below)
+#   omakey-setup --remove mozc      drop engines from the fcitx5 group; packages stay
+#   omakey-setup --uninstall        remove the Ctrl+Shift block from bindings.lua
+#
+#   --dry-run   print every planned change; write nothing, change nothing
+#   --yes       restart fcitx5 without asking when new engines need loading
+#
+# Never runs sudo itself: missing packages go through omarchy-pkg-add, which
+# asks for the password. Existing fcitx5 group entries are never reordered or
+# removed by --add. Every file it changes is backed up as <file>.bak.<stamp>.
+set -euo pipefail
+
+PLUGIN_ID="sonlndv.vietkey"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+FCITX_CONF="$CONFIG_HOME/fcitx5"
+BINDINGS="$CONFIG_HOME/hypr/bindings.lua"
+STAMP=$(date +%Y%m%d-%H%M%S)
+
+# Columns: id, badge, Arch package, fcitx5 engine ("-" = none). Kept in step
+# with Catalogue.mjs by test/catalogue.test.mjs.
+# catalogue:start
+CATALOGUE='
+en       EN  -                      keyboard-us
+vi       VI  fcitx5-unikey          unikey
+ja       JA  fcitx5-mozc            mozc
+ko       KO  fcitx5-hangul          hangul
+zh-Hans  ZH  fcitx5-chinese-addons  pinyin
+zh-Hant  ZH  fcitx5-chewing         chewing
+th       TH  fcitx5-libthai         libthai
+other    -   fcitx5-m17n            -
+'
+# catalogue:end
+
+BLOCK='-- omakey:start
+-- Omakey (plugin sonlndv.vietkey): Ctrl+Shift, either order or side, switches
+-- English <-> the last non-English language. Fires on release and lets the
+-- keys through, so Ctrl+Shift+<key> still works. Falls back to fcitx5'"'"'s own
+-- toggle when the shell is not running.
+for _, key in ipairs({ "Shift_L", "Shift_R", "Control_L", "Control_R" }) do
+  o.bind("CTRL + SHIFT + " .. key, "Omakey: English / last language", "omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t", { release = true, non_consuming = true })
+end
+-- omakey:end'
+
+UNIKEY_DEFAULTS='InputMethod=Telex
+OutputCharset=Unicode
+SpellCheck=True
+Macro=False
+AutoNonVnRestore=True
+ModernStyle=True
+FreeMarking=True'
+
+DRY_RUN=0
+ASSUME_YES=0
+MODE=setup
+LANGS=()
+REMOVE=()
+
+usage() {
+  sed -n '2,17s/^# \{0,1\}//p' "$0"
+}
+
+while (( $# > 0 )); do
+  case $1 in
+    -n|--dry-run) DRY_RUN=1 ;;
+    -y|--yes) ASSUME_YES=1 ;;
+    --uninstall) MODE=uninstall ;;
+    --add)
+      [[ $# -ge 2 ]] || { echo "omakey-setup: --add needs a list of languages" >&2; exit 2; }
+      IFS=', ' read -r -a parsed <<<"$2"
+      LANGS+=("${parsed[@]}"); shift ;;
+    --remove)
+      [[ $# -ge 2 ]] || { echo "omakey-setup: --remove needs a list of engines" >&2; exit 2; }
+      MODE=remove
+      IFS=', ' read -r -a parsed <<<"$2"
+      REMOVE+=("${parsed[@]}"); shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "omakey-setup: unknown option $1 (try --help)" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+(( ${#LANGS[@]} > 0 )) || LANGS=(en vi)
+# English is always on.
+[[ " ${LANGS[*]} " == *" en "* ]] || LANGS=(en "${LANGS[@]}")
+
+# ---------------------------------------------------------------- helpers
+
+say() { printf '%s\n' "$*"; }
+step() { printf '\n==> %s\n' "$*"; }
+note() { printf '    %s\n' "$*"; }
+
+if (( DRY_RUN )); then
+  say "Omakey setup — DRY RUN: nothing is written, installed or restarted."
+fi
+
+catalogue_field() {
+  awk -v id="$1" -v col="$2" 'NF == 4 && $1 == id { print $col; exit }' <<<"$CATALOGUE"
+}
+
+# Read-only fcitx5 calls never start fcitx5 (--auto-start=no).
+fcitx() {
+  busctl --user --auto-start=no call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 "$@"
+}
+
+fcitx_running() {
+  fcitx CurrentInputMethodGroup &>/dev/null
+}
+
+# State-changing fcitx5 calls go through here so --dry-run can't make them.
+fcitx_change() {
+  if (( DRY_RUN )); then
+    note "would call fcitx5 over D-Bus: $(printf '%q ' "$@")"
+  else
+    fcitx "$@" >/dev/null
+  fi
+}
+
+backup() {
+  local file=$1
+  [[ -e $file ]] || return 0
+  if (( DRY_RUN )); then
+    note "would back up $file -> $file.bak.$STAMP"
+  else
+    cp -p -- "$file" "$file.bak.$STAMP"
+    note "backed up $file -> $file.bak.$STAMP"
+  fi
+}
+
+# write_file PATH CONTENT: backs up an existing file first.
+write_file() {
+  local file=$1 content=$2
+  if (( DRY_RUN )); then
+    if [[ -e $file ]]; then
+      backup "$file"
+      note "would change $file:"
+      diff -u --label "$file" --label "$file (new)" -- "$file" <(printf '%s\n' "$content") | sed 's/^/      | /' || true
+    else
+      note "would create $file:"
+      sed 's/^/      | /' <<<"$content"
+    fi
+    return
+  fi
+  backup "$file"
+  mkdir -p -- "$(dirname -- "$file")"
+  printf '%s\n' "$content" >"$file"
+  note "wrote $file"
+}
+
+hypr_reload() {
+  if (( DRY_RUN )); then
+    note "would run: hyprctl reload"
+  else
+    hyprctl reload >/dev/null 2>&1 || true
+  fi
+}
+
+# Group state, filled by read_group: GROUP, LAYOUT, NAMES[], LAYOUTS[].
+read_group() {
+  local raw info i
+  raw=$(fcitx CurrentInputMethodGroup)          # s "Default"
+  GROUP=${raw#s \"}
+  GROUP=${GROUP%\"}
+  info=$(fcitx InputMethodGroupInfo s "$GROUP")  # sa(ss) "us" 2 "keyboard-us" "" "unikey" ""
+  local q=()
+  mapfile -t q < <(grep -o '"[^"]*"' <<<"$info" | sed 's/^"//; s/"$//')
+  LAYOUT=${q[0]:-}
+  NAMES=()
+  LAYOUTS=()
+  for (( i = 1; i < ${#q[@]}; i += 2 )); do
+    NAMES+=("${q[i]}")
+    LAYOUTS+=("${q[i + 1]:-}")
+  done
+}
+
+print_group() {
+  local i
+  for i in "${!NAMES[@]}"; do note "  $((i + 1)). ${NAMES[i]}${LAYOUTS[i]:+ (${LAYOUTS[i]})}"; done
+}
+
+write_group() {
+  local args=() i
+  for i in "${!NAMES[@]}"; do args+=("${NAMES[i]}" "${LAYOUTS[i]}"); done
+  fcitx_change SetInputMethodGroupInfo 'ssa(ss)' "$GROUP" "$LAYOUT" "${#NAMES[@]}" "${args[@]}"
+}
+
+has_name() {
+  local name=$1 n
+  for n in "${NAMES[@]}"; do [[ $n == "$name" ]] && return 0; done
+  return 1
+}
+
+has_keyboard() {
+  local n
+  for n in "${NAMES[@]}"; do [[ $n == keyboard-* ]] && return 0; done
+  return 1
+}
+
+# Every line of the file outside -- vietkey:start/end and -- omakey:start/end,
+# with BLOCK (if non-empty) where the first block was, or appended.
+rewrite_bindings() {
+  OMAKEY_BLOCK=$1 awk '
+    /^-- (vietkey|omakey):start/ { if (!done) { if (ENVIRON["OMAKEY_BLOCK"] != "") print ENVIRON["OMAKEY_BLOCK"]; done = 1 } skip = 1; next }
+    skip && /^-- (vietkey|omakey):end/ { skip = 0; next }
+    !skip { print }
+    END { if (!done && ENVIRON["OMAKEY_BLOCK"] != "") { print ""; print ENVIRON["OMAKEY_BLOCK"] } }
+  ' "$BINDINGS"
+}
+
+# Refuses to touch a file whose start/end markers don't pair up.
+check_markers() {
+  local starts ends
+  starts=$(grep -cE '^-- (vietkey|omakey):start' "$BINDINGS" || true)
+  ends=$(grep -cE '^-- (vietkey|omakey):end' "$BINDINGS" || true)
+  if [[ $starts != "$ends" ]]; then
+    say "omakey-setup: $BINDINGS has $starts start marker(s) but $ends end marker(s); fix it by hand." >&2
+    exit 1
+  fi
+}
+
+# ---------------------------------------------------------------- bindings
+
+update_bindings() {
+  step "Ctrl+Shift binding ($BINDINGS)"
+  if [[ ! -f $BINDINGS ]]; then
+    note "not found; skipping. Ctrl+Shift needs the block below in your Hyprland bindings:"
+    sed 's/^/      | /' <<<"$BLOCK"
+    return
+  fi
+  check_markers
+  local next
+  next=$(rewrite_bindings "$BLOCK")
+  if grep -qE '^-- vietkey:start' "$BINDINGS"; then
+    note "found the VietKey block (-- vietkey:start/end); replacing it with -- omakey:start/end"
+  elif grep -qE '^-- omakey:start' "$BINDINGS"; then
+    note "Omakey block present"
+  else
+    note "adding the Omakey block at the end"
+  fi
+  if [[ $next == "$(cat -- "$BINDINGS")" ]]; then
+    note "already up to date"
+    return
+  fi
+  write_file "$BINDINGS" "$next"
+  hypr_reload
+}
+
+remove_bindings() {
+  step "Ctrl+Shift binding ($BINDINGS)"
+  if [[ ! -f $BINDINGS ]] || ! grep -qE '^-- (vietkey|omakey):start' "$BINDINGS"; then
+    note "no Omakey or VietKey block found; nothing to remove"
+    return
+  fi
+  check_markers
+  note "removing the -- omakey/vietkey:start … end block"
+  write_file "$BINDINGS" "$(rewrite_bindings "")"
+  hypr_reload
+}
+
+# ---------------------------------------------------------------- steps
+
+install_packages() {
+  step "Packages"
+  local id pkg missing=()
+  for id in "${LANGS[@]}"; do
+    pkg=$(catalogue_field "$id" 3)
+    if [[ -z $pkg ]]; then
+      say "omakey-setup: unknown language '$id'. Known: $(awk 'NF == 4 { printf "%s ", $1 }' <<<"$CATALOGUE")" >&2
+      exit 2
+    fi
+    [[ $pkg == - ]] && continue
+    if pacman -Q "$pkg" &>/dev/null; then
+      note "$pkg already installed"
+    else
+      missing+=("$pkg")
+    fi
+  done
+  (( ${#missing[@]} > 0 )) || return 0
+  if (( DRY_RUN )); then
+    note "would run: omarchy-pkg-add ${missing[*]}"
+  else
+    note "installing ${missing[*]} (Omarchy asks for your password)"
+    omarchy-pkg-add "${missing[@]}"
+  fi
+}
+
+# fcitx5 only loads engines from newly installed packages after a restart.
+maybe_restart_fcitx5() {
+  local need=("$@")
+  (( ${#need[@]} > 0 )) || return 0
+  step "fcitx5 restart"
+  note "fcitx5 must restart to load: ${need[*]}"
+  note "Save your work first: open apps may need to be refocused or reopened before typing works again."
+  if (( DRY_RUN )); then
+    note "would ask before running: systemctl --user restart omarchy-fcitx5.service"
+    return 1
+  fi
+  if (( ! ASSUME_YES )); then
+    local answer=""
+    read -r -p "    Restart fcitx5 now? [y/N] " answer || true
+    if [[ $answer != [yY]* ]]; then
+      note "not restarting; packages stay installed, the group is unchanged. Run omakey-setup again to finish."
+      return 1
+    fi
+  fi
+  systemctl --user restart omarchy-fcitx5.service
+  local i
+  for (( i = 0; i < 20; i++ )); do
+    fcitx_running && return 0
+    sleep 0.5
+  done
+  say "omakey-setup: fcitx5 did not come back after the restart." >&2
+  return 1
+}
+
+add_engines() {
+  step "fcitx5 input method group"
+  if ! fcitx_running; then
+    note "fcitx5 is not running; start it (systemctl --user start omarchy-fcitx5) and run omakey-setup again."
+    return
+  fi
+  local id engine wanted=() unloaded=() available
+  for id in "${LANGS[@]}"; do
+    engine=$(catalogue_field "$id" 4)
+    [[ $engine == - ]] || wanted+=("$engine")
+  done
+  [[ " ${LANGS[*]} " == *" other "* ]] && note "Other languages: pick an m17n engine in fcitx5-configtool after fcitx5-m17n is installed."
+
+  available=$(fcitx AvailableInputMethods 2>/dev/null || true)
+  for engine in "${wanted[@]}"; do
+    grep -q "\"$engine\"" <<<"$available" || unloaded+=("$engine")
+  done
+  if (( ${#unloaded[@]} > 0 )); then
+    if ! maybe_restart_fcitx5 "${unloaded[@]}"; then
+      (( DRY_RUN )) || return 0
+      note "(after the restart, the engines below would be appended)"
+    fi
+  fi
+
+  read_group
+  note "group \"$GROUP\" now:"
+  print_group
+  local added=()
+  for engine in "${wanted[@]}"; do
+    has_name "$engine" && continue
+    [[ $engine == keyboard-* ]] && has_keyboard && continue
+    NAMES+=("$engine")
+    LAYOUTS+=("")
+    added+=("$engine")
+  done
+  if (( ${#added[@]} == 0 )); then
+    note "every engine is already in the group"
+    return
+  fi
+  note "appending ${added[*]} (existing entries keep their order):"
+  print_group
+  write_group
+}
+
+remove_engines() {
+  step "fcitx5 input method group"
+  if ! fcitx_running; then
+    note "fcitx5 is not running; nothing to remove."
+    return
+  fi
+  read_group
+  local keep_names=() keep_layouts=() dropped=() i name r drop
+  for i in "${!NAMES[@]}"; do
+    name=${NAMES[i]}
+    drop=0
+    if [[ $name != keyboard-* ]]; then
+      for r in "${REMOVE[@]}"; do [[ $name == "$r" ]] && drop=1; done
+    fi
+    if (( drop )); then
+      dropped+=("$name")
+    else
+      keep_names+=("$name")
+      keep_layouts+=("${LAYOUTS[i]}")
+    fi
+  done
+  if (( ${#dropped[@]} == 0 )); then
+    note "none of ${REMOVE[*]} is in group \"$GROUP\""
+    return
+  fi
+  NAMES=("${keep_names[@]}")
+  LAYOUTS=("${keep_layouts[@]}")
+  note "removing ${dropped[*]}; packages stay installed. Group \"$GROUP\" becomes:"
+  print_group
+  write_group
+}
+
+unikey_config() {
+  [[ " ${LANGS[*]} " == *" vi "* ]] || return 0
+  step "Unikey (Vietnamese) config"
+  local file="$FCITX_CONF/conf/unikey.conf"
+  if [[ -f $file ]]; then
+    note "keeping $file"
+  else
+    write_file "$file" "$UNIKEY_DEFAULTS"
+  fi
+}
+
+# First run only (no VietKey/Omakey block yet): one input state for every
+# window, and no lone-Shift switching (fcitx5's default AltTriggerKeys).
+fresh_behaviour() {
+  if [[ -f $BINDINGS ]] && grep -qE '^-- (vietkey|omakey):start' "$BINDINGS"; then
+    return 0
+  fi
+  step "fcitx5 behaviour (first run)"
+  if ! fcitx_running; then
+    note "fcitx5 is not running; skipping"
+    return
+  fi
+  note "share one input state across windows; disable lone-Shift switching"
+  fcitx_change SetConfig sv fcitx://config/global 'a{sv}' 2 \
+    Behavior 'a{sv}' 1 ShareInputState s All \
+    Hotkey 'a{sv}' 1 AltTriggerKeys 'a{sv}' 0
+}
+
+migration_note() {
+  if [[ ! -f $BINDINGS ]] || ! grep -qE '^-- vietkey:start' "$BINDINGS"; then
+    return 0
+  fi
+  step "Upgrading from VietKey"
+  note "Omakey keeps the plugin id $PLUGIN_ID, so this is an in-place upgrade:"
+  note "update the plugin files with 'omarchy plugin update $PLUGIN_ID' (no remove and re-add)."
+  note "Your Unikey settings ($FCITX_CONF/conf/unikey.conf) are kept as they are."
+}
+
+# ---------------------------------------------------------------- main
+
+case $MODE in
+  uninstall)
+    remove_bindings
+    step "Done"
+    note "Packages and the fcitx5 group are left alone."
+    note "To remove the plugin itself: omarchy plugin remove $PLUGIN_ID"
+    ;;
+  remove)
+    remove_engines
+    ;;
+  setup)
+    migration_note
+    install_packages
+    fresh_behaviour
+    unikey_config
+    add_engines
+    update_bindings
+    step "Done"
+    note "Ctrl+Shift switches English <-> your last language; click the Omakey badge for the menu."
+    ;;
+esac
+
+if (( DRY_RUN )); then
+  say ""
+  say "Dry run finished: no files were written and nothing was installed or restarted."
+fi

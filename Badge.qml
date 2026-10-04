@@ -1,7 +1,7 @@
 import QtQuick
 import qs.Commons
 
-// Filled rounded badge with a short code ("EN", "VI").
+// Filled rounded badge with a short code ("EN", "VI", "JA", …).
 Item {
   id: root
 

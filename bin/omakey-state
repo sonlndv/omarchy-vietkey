@@ -1,0 +1,16 @@
+#!/bin/bash
+# Omakey bar state, read-only: the current input method and the current fcitx5
+# group. Prints `im=`, `group=` and `info=` lines for Catalogue.parseState().
+# Never starts, restarts or changes fcitx5.
+
+fcitx() {
+  busctl --user --auto-start=no call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 "$@" 2>/dev/null
+}
+
+printf 'im=%s\n' "$(fcitx5-remote -n 2>/dev/null)"
+
+group=$(fcitx CurrentInputMethodGroup) || exit 0
+group=${group#s \"}
+group=${group%\"}
+printf 'group=%s\n' "$group"
+printf 'info=%s\n' "$(fcitx InputMethodGroupInfo s "$group")"

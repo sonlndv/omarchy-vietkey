@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "sonlndv.vietkey",
-  "name": "VietKey",
-  "version": "1.0.0",
+  "name": "Omakey",
+  "version": "2.0.0",
   "author": "sonlndv",
   "license": "MIT",
-  "description": "Vietnamese keyboard for Omarchy. Type tiếng Việt with Telex or VNI, switch with Ctrl+Shift — like Unikey, built on fcitx5.",
+  "description": "Input languages for Omarchy, built on fcitx5. English and Vietnamese (Telex/VNI) out of the box; add Japanese, Korean, Chinese, Thai and more. Ctrl+Shift switches English ↔ your last language.",
   "homepage": "https://github.com/sonlndv/omarchy-vietkey",
   "kinds": [
     "bar-widget"
@@ -14,41 +14,51 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "VietKey",
-    "description": "EN / VI badge with a Unikey-style menu and settings. Ctrl+Shift or right click switches English ↔ Vietnamese.",
+    "displayName": "Omakey",
+    "description": "Language badge (EN, VI, JA, KO, ZH, TH) with a menu to switch, add and remove languages. Ctrl+Shift or right click switches English ↔ the last language.",
     "category": "Compositor",
     "aliases": [
+      "omakey",
       "vietkey",
+      "input method",
+      "input language",
+      "fcitx",
+      "keyboard",
+      "input",
+      "ime",
       "vietnamese",
       "tieng viet",
       "telex",
       "vni",
       "unikey",
-      "fcitx",
-      "keyboard",
-      "input"
+      "japanese",
+      "korean",
+      "chinese",
+      "pinyin",
+      "zhuyin",
+      "thai"
     ],
     "allowMultiple": false,
     "defaultSection": "center",
     "defaults": {
-      "pollIntervalMs": 700,
+      "fallbackRefreshMs": 5000,
       "showModeName": true
     },
     "schema": [
       {
-        "key": "pollIntervalMs",
+        "key": "fallbackRefreshMs",
         "type": "integer",
-        "label": "Refresh interval (ms)",
-        "min": 200,
-        "max": 5000,
-        "step": 100,
-        "defaultValue": 700,
-        "description": "How often the label checks for switches made with Ctrl+Shift."
+        "label": "Fallback refresh (ms)",
+        "min": 2000,
+        "max": 60000,
+        "step": 1000,
+        "defaultValue": 5000,
+        "description": "The badge updates on its own when you switch with Omakey, Ctrl+Shift or a window change. This slow check only catches switches made with fcitx5's own hotkeys."
       },
       {
         "key": "showModeName",
         "type": "boolean",
-        "label": "Show the input method next to the badge",
+        "label": "Show the input mode next to the badge (Telex/VNI, Pinyin/Zhuyin)",
         "defaultValue": true
       }
     ]
