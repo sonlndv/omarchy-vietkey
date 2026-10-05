@@ -162,6 +162,7 @@ write_file() {
       diff -u --label "$file" --label "$file (new)" -- "$file" <(printf '%s\n' "$content") | sed 's/^/      | /' || true
     else
       note "would create $file:"
+      # shellcheck disable=SC2001  # per-line prefix; ${var//} can't anchor lines
       sed 's/^/      | /' <<<"$content"
     fi
     return
@@ -250,6 +251,7 @@ update_bindings() {
   step "Ctrl+Shift binding ($BINDINGS)"
   if [[ ! -f $BINDINGS ]]; then
     note "not found; skipping. Ctrl+Shift needs the block below in your Hyprland bindings:"
+    # shellcheck disable=SC2001  # per-line prefix; ${var//} can't anchor lines
     sed 's/^/      | /' <<<"$BLOCK"
     return
   fi
