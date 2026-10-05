@@ -112,12 +112,16 @@ The badge shows the language code, in your theme's accent colour when it
 isn't English, with the mode next to it where it matters: `Telex` / `VNI` for
 Vietnamese, `Pinyin` / `Zhuyin` for Chinese.
 
+The menu lists one row per language — no Telex/VNI or Hiragana/Katakana
+sub-rows. The active language's row shows its current mode inline (e.g.
+"Tiếng Việt · Telex"); clicking any row switches straight to that language on
+its current or first engine. Changing the mode itself — Telex vs VNI, which
+engine a multi-engine language uses — lives only in **Omakey Settings…**.
+
 ```
  ✓ [EN] English
-   [VI] Tiếng Việt · Vietnamese
-          Telex
-          VNI
-   [JA] 日本語 · Japanese
+   [VI] Tiếng Việt · Telex
+   [JA] 日本語 · Mozc
  ──────────────────────────────
    󰐕 Add language…
    󰍴 Remove language…
@@ -126,7 +130,9 @@ Vietnamese, `Pinyin` / `Zhuyin` for Chinese.
    Ctrl+Shift cycles: EN → VI → JA → EN
 ```
 
-Arrow keys (or `j`/`k`), Enter and Esc work. In Add/Remove, Esc goes back to
+Arrow keys (or `j`/`k`), Enter and Esc work. Clicking a row switches to that
+language; choosing Telex/VNI, Mozc/Anthy or another mode happens only in
+**Omakey Settings…**, never from this menu. In Add/Remove, Esc goes back to
 the main menu.
 
 The badge updates straight away when you switch with Omakey or Ctrl+Shift,

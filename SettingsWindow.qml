@@ -189,7 +189,7 @@ PanelWindow {
     Rectangle {
       id: card
       anchors.centerIn: parent
-      width: Style.space(640)
+      width: Style.space(700)
       height: content.implicitHeight + Style.space(48)
       scale: Math.min(1, (keyCatcher.width - Style.space(32)) / Math.max(1, width),
         (keyCatcher.height - Style.space(32)) / Math.max(1, height))
@@ -231,8 +231,8 @@ PanelWindow {
 
           // --------------------------------------------------- languages
           ColumnLayout {
-            Layout.preferredWidth: Style.space(260)
-            Layout.maximumWidth: Style.space(260)
+            Layout.preferredWidth: Style.space(320)
+            Layout.maximumWidth: Style.space(320)
             Layout.alignment: Qt.AlignTop
             spacing: Style.space(2)
 
@@ -344,7 +344,8 @@ PanelWindow {
               Layout.fillWidth: true
               wrapMode: Text.WordWrap
               text: win.kind === "english"
-                ? "English types with your keyboard layout; there is nothing to set here. Add a language from the list."
+                ? "English types with your keyboard layout (" + (win.host && win.host.groupLayout ? win.host.groupLayout : "us") + ")."
+                  + (win.languages.length > 1 ? " There is nothing to set here." : " Add a language from the list to start switching.")
                 : win.kind === "layout"
                 ? "Keyboard layout: " + win.language.name + " (" + win.language.xkbCode + ")"
                 : win.language ? "Omakey has no settings page of its own for " + win.language.name
@@ -352,6 +353,17 @@ PanelWindow {
               color: win.text
               font.family: win.fontFamily
               font.pixelSize: Style.font.body
+            }
+
+            Text {
+              visible: win.kind === "english" && win.languages.length > 1
+              Layout.fillWidth: true
+              wrapMode: Text.WordWrap
+              text: win.host ? win.host.cycleHint : ""
+              color: win.text
+              opacity: 0.6
+              font.family: win.fontFamily
+              font.pixelSize: Style.font.caption
             }
 
             Chip {
@@ -574,7 +586,7 @@ PanelWindow {
       Text {
         Layout.fillWidth: true
         elide: Text.ElideRight
-        text: win.host && langRow.language ? win.host.displayName(langRow.language) : ""
+        text: langRow.language ? (langRow.language.nativeName || langRow.language.name) : ""
         color: win.text
         font.family: win.fontFamily
         font.pixelSize: Style.font.body

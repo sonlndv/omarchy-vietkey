@@ -76,6 +76,18 @@ Panel {
       ? language.nativeName + " · " + language.name : language.name
   }
 
+  // Menu row label for a language: its display name, plus the active mode
+  // inline when it has one worth showing (Telex/VNI for Vietnamese, the
+  // engine name when a language has several, e.g. "Mozc" for Japanese).
+  // Mode choice itself lives only in the Omakey Settings dashboard.
+  function sourceLabel(language, active, current, viMode) {
+    var base = displayName(language)
+    if (!active) return base
+    if (language.id === Catalogue.VIETNAMESE) return base + " · " + viMode
+    if (language.engines.length > 1) return base + " · " + Catalogue.engineLabel(current)
+    return base
+  }
+
   // Menu rows in display order. Keyboard navigation skips separators, hints
   // and disabled rows.
   function buildRows(view, languages, current, viMode, picks, cycleHint, running) {
@@ -136,17 +148,9 @@ Panel {
     for (var j = 0; j < languages.length; j++) {
       var language = languages[j]
       var active = language.engines.indexOf(current) >= 0 || (j === 0 && Catalogue.isEnglishEngine(current))
-      out.push({ kind: "source", glyph: language.badge, label: displayName(language), checked: active,
+      out.push({ kind: "source", glyph: language.badge,
+        label: sourceLabel(language, active, current, viMode), checked: active,
         engine: active ? current : language.engines[0] })
-      if (language.id === Catalogue.VIETNAMESE) {
-        for (var m = 0; m < language.modes.length; m++)
-          out.push({ kind: "sub", mode: language.modes[m], label: language.modes[m],
-            checked: current === "unikey" && viMode === language.modes[m] })
-      } else if (language.engines.length > 1) {
-        for (var e = 0; e < language.engines.length; e++)
-          out.push({ kind: "sub", engine: language.engines[e], label: Catalogue.engineLabel(language.engines[e]),
-            checked: current === language.engines[e] })
-      }
     }
 
     out.push({ kind: "separator" })
@@ -165,7 +169,7 @@ Panel {
   function actionable(i) {
     if (i < 0 || i >= rows.length || rows[i].disabled) return false
     var kind = rows[i].kind
-    return kind === "source" || kind === "sub" || kind === "action" || kind === "pick"
+    return kind === "source" || kind === "action" || kind === "pick"
   }
 
   function moveCursor(delta) {
@@ -193,10 +197,6 @@ Panel {
     if (!row || row.disabled) return
     if (row.kind === "source") {
       switchTo(row.engine)
-      close()
-    } else if (row.kind === "sub") {
-      if (row.mode) setMode(row.mode)
-      else switchTo(row.engine)
       close()
     } else if (row.kind === "pick") {
       picks = Catalogue.toggleSelection(picks, row.langId)
@@ -601,10 +601,9 @@ Panel {
       readonly property var row: parent ? parent.rowData : null
       readonly property int rowIndex: parent ? parent.rowIndex : -1
       readonly property bool hot: root.cursorActive && root.cursorIndex === rowIndex
-      readonly property bool sub: !!row && row.kind === "sub"
       readonly property color textColor: Color.popups.text
 
-      implicitHeight: Style.space(sub ? 24 : 28)
+      implicitHeight: Style.space(28)
       implicitWidth: rowContent.implicitWidth + Style.space(22)
       hasCursor: hot
       foreground: Color.popups.text
@@ -613,7 +612,7 @@ Panel {
       Row {
         id: rowContent
         anchors.verticalCenter: parent.verticalCenter
-        x: Style.space(rowItem.sub ? 34 : 6)
+        x: Style.space(6)
         spacing: Style.space(6)
         LayoutMirroring.enabled: false
         LayoutMirroring.childrenInherit: false
@@ -663,9 +662,9 @@ Panel {
           textFormat: Text.PlainText
           text: rowItem.row ? rowItem.row.label : ""
           color: rowItem.textColor
-          opacity: rowItem.sub ? 0.8 : 1
+          opacity: 1
           font.family: root.fontFamily
-          font.pixelSize: rowItem.sub ? Style.font.caption : Style.font.body
+          font.pixelSize: Style.font.body
           LayoutMirroring.enabled: false
           horizontalAlignment: Text.AlignLeft
         }
