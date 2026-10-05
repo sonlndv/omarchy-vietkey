@@ -3,6 +3,9 @@
   "private": true,
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "test:e2e": "test/e2e-typing.sh"
+    "test:e2e": "test/e2e-typing.sh",
+    "lint": "npm run lint:qml && npm run lint:sh",
+    "lint:qml": "/usr/lib/qt6/bin/qmllint -I /usr/share/omarchy/shell -I /usr/share/omarchy *.qml 2>&1 | grep -E '^Error' && exit 1 || echo 'qmllint: no errors'",
+    "lint:sh": "bash -n bin/keymarchy-state bin/keymarchy-setup && (command -v shellcheck >/dev/null && shellcheck bin/keymarchy-state bin/keymarchy-setup || echo 'shellcheck: not installed, bash -n only')"
   }
 }
