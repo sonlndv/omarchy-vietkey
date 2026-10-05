@@ -2,15 +2,47 @@
 # Keymarchy bar state, read-only: the current input method and the current
 # fcitx5 group. Prints `im=`, `group=` and `info=` lines for
 # Catalogue.parseState(). Never starts, restarts or changes fcitx5.
+#
+# Two fcitx5 D-Bus calls, the minimum the Controller1 API allows, run
+# concurrently via process substitution (busctl's own process startup, not
+# the D-Bus round-trip, dominates the time, so overlapping the two calls
+# beats running them one after another):
+#   - CurrentInputMethod(): the focused input context's active engine. This
+#     can differ from the group's configured default input method (fcitx5
+#     tracks "current IM of last focused context" separately from the
+#     group's static config), so it can't be read off the group-info call
+#     below and needs its own query.
+#   - FullInputMethodGroupInfo(""): the current group's name, default layout
+#     and member list in one call. The empty-string argument means "the
+#     current group" (fcitx5's dbusmodule.cpp falls back to
+#     inputMethodManager().currentGroup() when the name is empty), replacing
+#     the old CurrentInputMethodGroup() + InputMethodGroupInfo() pair.
+#
+# Both replies use --json=short and are merged by one jq call instead of
+# string-trimming busctl's plain-text output (the old ${var#s \"} /
+# ${var%\"}). This isn't cosmetic: busctl's plain-text formatter prints a
+# D-Bus string as "%s" with no escaping of embedded quotes (systemd's
+# busctl.c), so a group or input-method name containing a quote produces
+# genuinely ambiguous plain text that no regex can parse correctly.
+# --json=short properly escapes it, and jq's @json re-escapes it on the way
+# back out, so the im=/group=/info= lines stay correct.
+set -euo pipefail
 
-fcitx() {
-  busctl --user --auto-start=no call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 "$@" 2>/dev/null
-}
+exec {im_fd}< <(busctl --user --auto-start=no --json=short call org.fcitx.Fcitx5 /controller \
+  org.fcitx.Fcitx.Controller1 CurrentInputMethod 2>/dev/null || printf '{"data":[""]}')
+exec {grp_fd}< <(busctl --user --auto-start=no --json=short call org.fcitx.Fcitx5 /controller \
+  org.fcitx.Fcitx.Controller1 FullInputMethodGroupInfo s "" 2>/dev/null || printf '{"data":["","","",{},[]]}')
+IFS= read -r -d '' im_json <&"$im_fd" || true
+IFS= read -r -d '' grp_json <&"$grp_fd" || true
+exec {im_fd}<&- {grp_fd}<&-
 
-printf 'im=%s\n' "$(fcitx5-remote -n 2>/dev/null)"
-
-group=$(fcitx CurrentInputMethodGroup) || exit 0
-group=${group#s \"}
-group=${group%\"}
-printf 'group=%s\n' "$group"
-printf 'info=%s\n' "$(fcitx InputMethodGroupInfo s "$group")"
+jq -r -n --argjson im "$im_json" --argjson grp "$grp_json" '
+  ($im.data[0] // "") as $imv
+  | ($grp.data[0] // "") as $group
+  | ($grp.data[2] // "") as $layout
+  | ($grp.data[4] // []) as $items
+  | "im=" + $imv,
+    "group=" + $group,
+    ("info=sa(ss) " + ($layout | @json) + " " + ($items | length | tostring)
+      + " " + ([$items[] | (.[0] | @json) + " " + (.[8] | @json)] | join(" ")))
+'
