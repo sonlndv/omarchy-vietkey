@@ -194,8 +194,8 @@ and fcitx5 group are untouched. `--dry-run` shows the exact change.
 
 Until you run it, the old binding still works — it calls `fcitx5-remote -t`
 directly, so it toggles two languages rather than cycling all of them.
-`bin/vietkey-setup` and `bin/omakey-setup` still exist and just run
-`keymarchy-setup`.
+The old `bin/vietkey-setup` and `bin/omakey-setup` names are gone as of 2.0.3;
+`keymarchy-setup` is the one setup script.
 
 ## Commands and options
 
@@ -270,6 +270,8 @@ editing it.
 
 ## Changelog
 
+- **2.0.3** — One setup script: `bin/vietkey-setup` and `bin/omakey-setup`
+  shims removed.
 - **2.0.2** — `keymarchy-state` reads fcitx5 via `busctl --json` + `jq`, so
   group and engine names containing quotes parse correctly. Fallback refresh
   default 5 s → 2 s. `npm run lint`.

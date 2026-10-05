@@ -1,3 +1,0 @@
-#!/bin/bash
-# Old Omakey name, kept so existing docs and automation keep working.
-exec bash "$(dirname -- "$0")/keymarchy-setup" "$@"
