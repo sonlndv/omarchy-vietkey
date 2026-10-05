@@ -1,8 +1,8 @@
-// Omakey language catalogue and the pure logic around it: badge codes, the
+// Keymarchy language catalogue and the pure logic around it: badge codes, the
 // first-run selection, fcitx5 group merges and reorders, and the Ctrl+Shift
 // cycle. No Qt imports, so BarWidget.qml and `node --test` share this file.
 //
-// bin/omakey-setup keeps a copy of the id/badge/package/engine columns
+// bin/keymarchy-setup keeps a copy of the id/badge/package/engine columns
 // between `# catalogue:start` and `# catalogue:end`; test/catalogue.test.mjs
 // fails if the two drift apart.
 
@@ -10,9 +10,9 @@ export const ENGLISH = "en"
 export const VIETNAMESE = "vi"
 export const M17N_PACKAGE = "fcitx5-m17n"
 
-// `engines` lists the engine Omakey adds first, then other engines that count
+// `engines` lists the engine Keymarchy adds first, then other engines that count
 // as the same language when they are already in the user's fcitx5 group.
-// `modes` are informational for engines Omakey can't switch modes on.
+// `modes` are informational for engines Keymarchy can't switch modes on.
 export const LANGUAGES = [
   { id: "en", badge: "EN", name: "English", nativeName: "English",
     package: "", engines: ["keyboard-us"], modes: [] },
@@ -32,7 +32,7 @@ export const LANGUAGES = [
 ]
 
 // Anything else goes through fcitx5-m17n; the engine is picked from fcitx5's
-// own list by omakey-setup.
+// own list by keymarchy-setup.
 export const OTHER = {
   id: "other", badge: "", name: "Other language (m17n)", nativeName: "",
   package: M17N_PACKAGE, engines: [], modes: []
@@ -68,7 +68,7 @@ export const LAYOUT_LANGUAGES = [
 ]
 
 // The picker's catch-all: any other XKB layout from base.lst. No fixed
-// engine; omakey-setup resolves "keyboard-<code>" from the code the user
+// engine; keymarchy-setup resolves "keyboard-<code>" from the code the user
 // picks and appends it like any other LAYOUT language.
 export const OTHER_LAYOUT = {
   id: "other-layout", badge: "", name: "Other keyboard layout…", nativeName: "",
@@ -92,7 +92,7 @@ export function byId(id) {
 }
 
 // Only "keyboard-us" and the user's own base layout (any keyboard-<code>
-// Omakey didn't add as a LAYOUT language) count as English. A LAYOUT
+// Keymarchy didn't add as a LAYOUT language) count as English. A LAYOUT
 // language's own engine — keyboard-ara, keyboard-ru, keyboard-il, … —
 // never does, even though it's still a "keyboard-*" engine name.
 export function isEnglishEngine(engine) {
@@ -265,7 +265,7 @@ export function reorderGroup(items, ids) {
 }
 
 // busctl arguments after the Controller1 interface for writing a group, the
-// same call bin/omakey-setup's write_group makes.
+// same call bin/keymarchy-setup's write_group makes.
 export function setGroupArgs(group, layout, items) {
   const args = ["SetInputMethodGroupInfo", "ssa(ss)", group, layout || "", String((items || []).length)]
   for (const item of items || []) args.push(item.name, item.layout || "")
@@ -318,7 +318,7 @@ export function parseGroupInfo(text) {
   return { layout: tokens[1] || "", items: items }
 }
 
-// bin/omakey-state prints `im=`, `group=` and `info=` lines.
+// bin/keymarchy-state prints `im=`, `group=` and `info=` lines.
 export function parseState(text) {
   const state = { running: false, current: "", group: "", layout: "", items: [] }
   for (const line of String(text || "").split("\n")) {

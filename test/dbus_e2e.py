@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Omakey e2e typing harness helper: drives a private fcitx5 over its own D-Bus
+Keymarchy e2e typing harness helper: drives a private fcitx5 over its own D-Bus
 session via org.fcitx.Fcitx.InputMethod1 / InputContext1, sends real key
 events (ProcessKeyEvent) and collects CommitString signals.
 
@@ -40,7 +40,7 @@ def main():
 
     im = bus.get_object('org.fcitx.Fcitx5', '/org/freedesktop/portal/inputmethod')
     im_iface = dbus.Interface(im, 'org.fcitx.Fcitx.InputMethod1')
-    path, _uuid = im_iface.CreateInputContext([('program', 'omakey-e2e')])
+    path, _uuid = im_iface.CreateInputContext([('program', 'keymarchy-e2e')])
 
     ic = bus.get_object('org.fcitx.Fcitx5', path)
     ic_iface = dbus.Interface(ic, 'org.fcitx.Fcitx.InputContext1')

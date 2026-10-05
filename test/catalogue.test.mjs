@@ -209,12 +209,12 @@ test("dashboard reorder moves languages, keeps English slots and engine order", 
   assert.equal(C.cycleTarget("hangul", engines), "mozc")
 })
 
-test("group write arguments match omakey-setup's SetInputMethodGroupInfo call", () => {
+test("group write arguments match keymarchy-setup's SetInputMethodGroupInfo call", () => {
   assert.deepEqual(C.setGroupArgs("Default", "us", [{ name: "keyboard-us", layout: "" }, { name: "mozc", layout: "jp" }]),
     ["SetInputMethodGroupInfo", "ssa(ss)", "Default", "us", "2", "keyboard-us", "", "mozc", "jp"])
 })
 
-test("parses busctl group info and omakey-state output", () => {
+test("parses busctl group info and keymarchy-state output", () => {
   const info = 'sa(ss) "us" 3 "keyboard-us" "" "unikey" "" "mozc" "jp"'
   assert.deepEqual(C.parseGroupInfo(info), {
     layout: "us",
@@ -230,8 +230,8 @@ test("parses busctl group info and omakey-state output", () => {
     { InputMethod: "VNI", SpellCheck: "True" })
 })
 
-test("bin/omakey-setup's catalogue copy matches Catalogue.mjs", () => {
-  const script = readFileSync(new URL("../bin/omakey-setup", import.meta.url), "utf8")
+test("bin/keymarchy-setup's catalogue copy matches Catalogue.mjs", () => {
+  const script = readFileSync(new URL("../bin/keymarchy-setup", import.meta.url), "utf8")
   const block = script.split("# catalogue:start")[1].split("# catalogue:end")[0]
   const rows = block.split("\n").map(l => l.trim().split(/\s+/)).filter(r => r.length === 4)
   const expected = C.LANGUAGES.map(l => [l.id, l.badge, l.package || "-", l.engines[0]])

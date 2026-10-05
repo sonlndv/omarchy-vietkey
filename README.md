@@ -1,38 +1,39 @@
-# Omakey — input languages for Omarchy
+# Keymarchy — input languages for Omarchy
 
 English and Vietnamese out of the box, any other language when you want it.
-Omakey shows the current language on the Omarchy bar, cycles through your
+Keymarchy shows the current language on the Omarchy bar, cycles through your
 languages with Ctrl+Shift, and manages them from one small dashboard.
-Formerly VietKey: existing installs upgrade in place.
+Formerly VietKey: existing installs upgrade in place. Briefly called Omakey
+in 2.0.0.
 
-Omakey is a front end for [fcitx5](https://fcitx-im.org/), which Omarchy
+Keymarchy is a front end for [fcitx5](https://fcitx-im.org/), which Omarchy
 already runs.
 
-![Omakey menu and language settings](preview.png)
+![Keymarchy menu and language settings](preview.png)
 
-Omakey is the successor to VietKey. The plugin id is still `sonlndv.vietkey`,
+Keymarchy is the successor to VietKey. The plugin id is still `sonlndv.vietkey`,
 so existing installs upgrade in place (see [Upgrading from VietKey](#upgrading-from-vietkey)).
 
 ## Install
 
 ```sh
 omarchy plugin add https://github.com/sonlndv/omarchy-vietkey.git --enable
-~/.config/omarchy/plugins/sonlndv.vietkey/bin/omakey-setup
+~/.config/omarchy/plugins/sonlndv.vietkey/bin/keymarchy-setup
 ```
 
-Run `omakey-setup` once. By default it sets up English + Vietnamese:
+Run `keymarchy-setup` once. By default it sets up English + Vietnamese:
 
 1. installs missing packages (only those) with `omarchy-pkg-add`, which asks
-   for your password; Omakey itself never runs sudo,
+   for your password; Keymarchy itself never runs sudo,
 2. appends the engines to your fcitx5 input method group over D-Bus, without
    reordering or removing anything already there,
 3. on a first install only: one input state for every window, and turns off
    fcitx5's lone-Shift switching,
 4. writes default Unikey options (Telex, Unicode) if you have none yet,
 5. adds the **Ctrl+Shift** binding to `~/.config/hypr/bindings.lua`, between
-   `-- omakey:start` and `-- omakey:end`.
+   `-- keymarchy:start` and `-- keymarchy:end`.
 
-If a new engine needs fcitx5 to restart, Omakey says so and asks first. Save
+If a new engine needs fcitx5 to restart, Keymarchy says so and asks first. Save
 your work: open apps may need to be refocused or reopened afterwards. If you
 say no, the packages stay installed and the group is unchanged; run it again
 to finish.
@@ -41,10 +42,11 @@ Every file it changes is backed up as `<file>.bak.<date-time>`. To see what
 it would do without changing anything:
 
 ```sh
-omakey-setup --dry-run
+keymarchy-setup --dry-run
 ```
 
-`bin/vietkey-setup` still works: it just runs `omakey-setup`.
+`bin/vietkey-setup` and `bin/omakey-setup` still work: they just run
+`keymarchy-setup`.
 
 ## Choosing languages
 
@@ -57,15 +59,15 @@ Vietnamese already ticked:
 - Tick anything else you want from the list below.
 
 **Install and add** opens Omarchy's floating terminal and runs
-`omakey-setup --add <languages>`, so you can see the package install and
+`keymarchy-setup --add <languages>`, so you can see the package install and
 answer the restart question. You can also do it by hand:
 
 ```sh
-omakey-setup --add ja,ko        # ids from the table below
+keymarchy-setup --add ja,ko        # ids from the table below
 ```
 
 **Remove language…** drops a language's engines from the fcitx5 group. The
-packages stay installed (`omakey-setup --remove mozc` does the same).
+packages stay installed (`keymarchy-setup --remove mozc` does the same).
 
 ### Supported languages
 
@@ -87,8 +89,8 @@ packages stay installed (`omakey-setup --remove mozc` does the same).
 | Hindi                       | `HI`  | (none, keyboard layout) | `keyboard-in` |
 | Anything else               | code  | `fcitx5-m17n`           | from fcitx5's m17n list |
 
-For "anything else" (`--add other`), Omakey installs `fcitx5-m17n`; pick the
-engine for your language in `fcitx5-configtool`. Omakey then shows it with a
+For "anything else" (`--add other`), Keymarchy installs `fcitx5-m17n`; pick the
+engine for your language in `fcitx5-configtool`. Keymarchy then shows it with a
 badge made from its language code. Engines you added yourself (Anthy,
 Shuangpin, …) appear under their language too.
 
@@ -101,7 +103,7 @@ Shuangpin, …) appear under their language too.
 | Click the badge           | Menu: pick any language or mode                     |
 
 Ctrl+Shift cycles through every language you have enabled, in the order
-shown in the menu and in **Omakey Settings…** (your fcitx5 group order,
+shown in the menu and in **Keymarchy Settings…** (your fcitx5 group order,
 English first):
 
 - **English only:** Ctrl+Shift does nothing; add a language first.
@@ -110,7 +112,7 @@ English first):
   English → Vietnamese → Japanese → English.
 
 A language is entered on its first engine (Vietnamese on Unikey, Japanese on
-Mozc). Change the order with the ↑/↓ buttons in Omakey Settings.
+Mozc). Change the order with the ↑/↓ buttons in Keymarchy Settings.
 
 Ctrl+Shift fires when you let go, and only if you pressed nothing else, so
 shortcuts like Ctrl+Shift+T keep working.
@@ -125,7 +127,7 @@ The menu lists one row per language — no Telex/VNI or Hiragana/Katakana
 sub-rows. The active language's row shows its current mode inline (e.g.
 "Tiếng Việt · Telex"); clicking any row switches straight to that language on
 its current or first engine. Changing the mode itself — Telex vs VNI, which
-engine a multi-engine language uses — lives only in **Omakey Settings…**.
+engine a multi-engine language uses — lives only in **Keymarchy Settings…**.
 
 ```
  ✓ [EN] English
@@ -134,25 +136,25 @@ engine a multi-engine language uses — lives only in **Omakey Settings…**.
  ──────────────────────────────
    󰐕 Add language…
    󰍴 Remove language…
-   󰒓 Omakey Settings…
+   󰒓 Keymarchy Settings…
  ──────────────────────────────
    Ctrl+Shift cycles: EN → VI → JA → EN
 ```
 
 Arrow keys (or `j`/`k`), Enter and Esc work. Clicking a row switches to that
 language; choosing Telex/VNI, Mozc/Anthy or another mode happens only in
-**Omakey Settings…**, never from this menu. In Add/Remove, Esc goes back to
+**Keymarchy Settings…**, never from this menu. In Add/Remove, Esc goes back to
 the main menu.
 
-The badge updates straight away when you switch with Omakey or Ctrl+Shift,
-and again whenever window focus changes. VietKey polled every 700 ms; Omakey
+The badge updates straight away when you switch with Keymarchy or Ctrl+Shift,
+and again whenever window focus changes. VietKey polled every 700 ms; Keymarchy
 only keeps a slow fallback check (`fallbackRefreshMs`, 5 s by default) for
 switches made with fcitx5's own hotkeys, which send no event. The old
 `pollIntervalMs` setting is no longer used.
 
-## Omakey Settings
+## Keymarchy Settings
 
-**Omakey Settings…** in the menu (or `omarchy-shell sonlndv.vietkey settings`)
+**Keymarchy Settings…** in the menu (or `omarchy-shell sonlndv.vietkey settings`)
 opens one dashboard for everything. Changes apply straight away.
 
 - **Languages** (left): your languages in Ctrl+Shift order, with a check on
@@ -189,7 +191,7 @@ immediately.
   - Cho phép gõ dấu tự do · type tone marks anywhere in the word
   - Xử lý W ở đầu từ · W at the start of a word becomes Ư
 
-**Other engines** don't have an Omakey page yet; the dashboard links to
+**Other engines** don't have a Keymarchy page yet; the dashboard links to
 `fcitx5-configtool` (install it if you don't have it).
 
 ### Telex
@@ -220,17 +222,18 @@ Same plugin id, so it's an update, not a remove and re-add:
 
 ```sh
 omarchy plugin update sonlndv.vietkey
-~/.config/omarchy/plugins/sonlndv.vietkey/bin/omakey-setup
+~/.config/omarchy/plugins/sonlndv.vietkey/bin/keymarchy-setup
 ```
 
-`omakey-setup` finds the old `-- vietkey:start` … `-- vietkey:end` block in
-`~/.config/hypr/bindings.lua` and replaces it with the `-- omakey:start` …
-`-- omakey:end` block (backing the file up first). Your Unikey settings and
-your fcitx5 group are kept as they are. Run it with `--dry-run` first to see
-the exact change.
+`keymarchy-setup` finds an old `-- vietkey:start` … `-- vietkey:end` block or
+an old `-- omakey:start` … `-- omakey:end` block (from the brief 2.0.0 Omakey
+name) in `~/.config/hypr/bindings.lua` and replaces it with the
+`-- keymarchy:start` … `-- keymarchy:end` block (backing the file up first).
+Your Unikey settings and your fcitx5 group are kept as they are. Run it with
+`--dry-run` first to see the exact change.
 
 Until you run it, the old binding keeps working (it calls `fcitx5-remote -t`
-directly); the new one goes through Omakey so it cycles through all your
+directly); the new one goes through Keymarchy so it cycles through all your
 languages in order.
 
 ## Bar options
@@ -252,18 +255,18 @@ omarchy-shell sonlndv.vietkey setLanguage ja  # a language by id: vi ja ko zh-Ha
 omarchy-shell sonlndv.vietkey setMode VNI     # Vietnamese, VNI (or Telex)
 omarchy-shell sonlndv.vietkey addLanguage     # open the language picker
 omarchy-shell sonlndv.vietkey togglePanel     # open / close the menu
-omarchy-shell sonlndv.vietkey settings        # open / close Omakey Settings
+omarchy-shell sonlndv.vietkey settings        # open / close Keymarchy Settings
 ```
 
 ## Troubleshooting
 
 - **Nothing changes when I type:** make sure fcitx5 is running
   (`systemctl --user status omarchy-fcitx5`); the badge dims when it isn't.
-  Then run `omakey-setup` again.
-- **Ctrl+Shift does nothing:** check the `-- omakey:start` block is in
+  Then run `keymarchy-setup` again.
+- **Ctrl+Shift does nothing:** check the `-- keymarchy:start` block is in
   `~/.config/hypr/bindings.lua`, then `hyprctl reload`.
 - **A language I added doesn't show up:** fcitx5 probably needs the restart
-  you declined. Run `omakey-setup --add <id>` again and answer yes.
+  you declined. Run `keymarchy-setup --add <id>` again and answer yes.
 - **The badge is a few seconds behind after using fcitx5's own hotkey:** that
   is the fallback check; use Ctrl+Shift or the menu, or lower
   `fallbackRefreshMs`.
@@ -273,7 +276,7 @@ omarchy-shell sonlndv.vietkey settings        # open / close Omakey Settings
 ## Uninstall
 
 ```sh
-~/.config/omarchy/plugins/sonlndv.vietkey/bin/omakey-setup --uninstall
+~/.config/omarchy/plugins/sonlndv.vietkey/bin/keymarchy-setup --uninstall
 omarchy plugin remove sonlndv.vietkey
 ```
 

@@ -7,7 +7,7 @@ import qs.Commons
 import qs.Ui
 import "Catalogue.mjs" as Catalogue
 
-// Omakey Settings: one dashboard for every enabled language.
+// Keymarchy Settings: one dashboard for every enabled language.
 //
 // Left, the languages in Ctrl+Shift cycle order (the fcitx5 group order) with
 // a check on the active one: move up/down, remove, or add more through the
@@ -138,7 +138,7 @@ PanelWindow {
   anchors { top: true; bottom: true; left: true; right: true }
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
-  WlrLayershell.namespace: "omakey-settings"
+  WlrLayershell.namespace: "keymarchy-settings"
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
@@ -210,7 +210,7 @@ PanelWindow {
         ColumnLayout {
           spacing: 0
           Text {
-            text: "Omakey"
+            text: "Keymarchy"
             color: win.text
             font.family: win.fontFamily
             font.pixelSize: Style.font.title
@@ -293,7 +293,7 @@ PanelWindow {
               Layout.fillWidth: true
               Layout.leftMargin: Style.space(8)
               wrapMode: Text.WordWrap
-              text: "Opens the picker in the Omakey menu. Installing a language may ask to restart fcitx5; it asks first."
+              text: "Opens the picker in the Keymarchy menu. Installing a language may ask to restart fcitx5; it asks first."
               color: win.text
               opacity: 0.6
               font.family: win.fontFamily
@@ -348,7 +348,7 @@ PanelWindow {
                   + (win.languages.length > 1 ? " There is nothing to set here." : " Add a language from the list to start switching.")
                 : win.kind === "layout"
                 ? "Keyboard layout: " + win.language.name + " (" + win.language.xkbCode + ")"
-                : win.language ? "Omakey has no settings page of its own for " + win.language.name
+                : win.language ? "Keymarchy has no settings page of its own for " + win.language.name
                   + " yet. Its options live in fcitx5's configuration tool (fcitx5-configtool)." : ""
               color: win.text
               font.family: win.fontFamily

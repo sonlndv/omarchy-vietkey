@@ -7,20 +7,22 @@ import qs.Commons
 import qs.Ui
 import "Catalogue.mjs" as Catalogue
 
-// Omakey: input languages for fcitx5. English plus Vietnamese (Unikey, Telex
-// or VNI) by default; Japanese, Korean, Chinese, Thai and m17n on request.
+// Keymarchy: input languages for fcitx5. English plus Vietnamese (Unikey,
+// Telex or VNI) by default; Japanese, Korean, Chinese, Thai and m17n on
+// request.
 //
 // The plugin id stays sonlndv.vietkey (moduleName, IPC target) so VietKey
 // installs upgrade in place.
 //
-// State comes from bin/omakey-state (read-only: current engine + the fcitx5
-// group). It is re-read when Omakey switches, on Hyprland focus changes and
-// when the menu opens; a slow fallback timer only catches switches made
-// outside Omakey (fcitx5's own hotkeys or config tool), which send no event.
+// State comes from bin/keymarchy-state (read-only: current engine + the
+// fcitx5 group). It is re-read when Keymarchy switches, on Hyprland focus
+// changes and when the menu opens; a slow fallback timer only catches
+// switches made outside Keymarchy (fcitx5's own hotkeys or config tool),
+// which send no event.
 //
 // Left click opens the menu; right click and Ctrl+Shift (bound in Hyprland to
 // the `toggle` IPC call) cycle through every enabled language in fcitx5 group
-// order. The Omakey Settings dashboard (SettingsWindow.qml) reorders, adds
+// order. The Keymarchy Settings dashboard (SettingsWindow.qml) reorders, adds
 // and removes languages and holds per-language options.
 Panel {
   id: root
@@ -30,8 +32,8 @@ Panel {
   readonly property string configUri: "fcitx://config/inputmethod/unikey"
   readonly property var busctl: ["busctl", "--user", "--auto-start=no", "call", "org.fcitx.Fcitx5", "/controller", "org.fcitx.Fcitx.Controller1"]
   readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "")).replace(/\/$/, "")
-  readonly property string setupPath: pluginDir + "/bin/omakey-setup"
-  readonly property string statePath: pluginDir + "/bin/omakey-state"
+  readonly property string setupPath: pluginDir + "/bin/keymarchy-setup"
+  readonly property string statePath: pluginDir + "/bin/keymarchy-state"
 
   property bool running: true
   property string current: ""                 // fcitx5 engine name, e.g. "unikey"
@@ -79,7 +81,7 @@ Panel {
   // Menu row label for a language: its display name, plus the active mode
   // inline when it has one worth showing (Telex/VNI for Vietnamese, the
   // engine name when a language has several, e.g. "Mozc" for Japanese).
-  // Mode choice itself lives only in the Omakey Settings dashboard.
+  // Mode choice itself lives only in the Keymarchy Settings dashboard.
   function sourceLabel(language, active, current, viMode) {
     var base = displayName(language)
     if (!active) return base
@@ -124,7 +126,7 @@ Panel {
       var fresh = picks.filter(function(id) { return enabledIds.indexOf(id) < 0 })
       out.push({ kind: "separator" })
       // Engines from new packages only load after a fcitx5 restart, which
-      // omakey-setup asks about first; layouts never need one.
+      // keymarchy-setup asks about first; layouts never need one.
       if (fresh.some(function(id) { var entry = Catalogue.byId(id); return !!entry && !!entry.package }))
         out.push({ kind: "hint", label: "Installing may ask to restart fcitx5" })
       out.push({ kind: "action", action: "install", icon: "󰏗", disabled: fresh.length === 0,
@@ -160,7 +162,7 @@ Panel {
       out.push({ kind: "action", action: "add", icon: "󰐕", label: "Add language…" })
       out.push({ kind: "action", action: "remove", icon: "󰍴", label: "Remove language…" })
     }
-    out.push({ kind: "action", action: "settings", icon: "󰒓", label: "Omakey Settings…" })
+    out.push({ kind: "action", action: "settings", icon: "󰒓", label: "Keymarchy Settings…" })
     out.push({ kind: "separator" })
     out.push({ kind: "hint", label: cycleHint })
     return out
@@ -294,7 +296,7 @@ Panel {
   // Dashboard reorder: one step up (-1) or down (+1) in the fcitx5 group,
   // which is the Ctrl+Shift cycle order. English never moves and nothing is
   // dropped (Catalogue.moveLanguage). Applies straight away over D-Bus, the
-  // same SetInputMethodGroupInfo call omakey-setup's write_group makes; no
+  // same SetInputMethodGroupInfo call keymarchy-setup's write_group makes; no
   // fcitx5 restart is needed.
   function moveLanguage(id, delta) {
     if (!running || !groupName) return
@@ -310,7 +312,7 @@ Panel {
     Util.execArgv(["omarchy", "bar", "set", root.moduleName, "showModeName", on ? "true" : "false", "--json"])
   }
 
-  // Opens the Omakey Settings dashboard on a language id; "" means the
+  // Opens the Keymarchy Settings dashboard on a language id; "" means the
   // current language.
   function openSettings(id) {
     selectSettingsLanguage(id || currentLanguage.id)
@@ -464,7 +466,7 @@ Panel {
     labelVisible: false
     hasVisualContent: true
     fixedWidth: iconRow.implicitWidth + Style.space(12)
-    tooltipText: root.opened ? "" : "Omakey · "
+    tooltipText: root.opened ? "" : "Keymarchy · "
       + (root.running ? root.currentLanguage.name + (root.modeText ? " (" + root.modeText + ")" : "") : "fcitx5 isn't running")
       + "\nClick: menu · Right click: next language\n" + root.cycleHint
     onPressed: function(mouseButton) {

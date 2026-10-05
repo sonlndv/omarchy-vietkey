@@ -1,5 +1,5 @@
 #!/bin/bash
-# Omakey all-round headless typing test harness.
+# Keymarchy all-round headless typing test harness.
 #
 # NEVER touches Son's live fcitx5 session. Starts a private fcitx5 inside a
 # private D-Bus session (dbus-run-session), with XDG_CONFIG_HOME/
@@ -28,7 +28,7 @@ DBUS_HELPER="$SCRIPT_DIR/dbus_e2e.py"
 # (catalogue tests) runs with -- so every embedded `node` call below uses it.
 NODE_BIN="$(command -v node)"
 
-WORK="$(mktemp -d /tmp/omakey-e2e.XXXXXXXX)"
+WORK="$(mktemp -d /tmp/keymarchy-e2e.XXXXXXXX)"
 FCITX_PID=""
 DBUS_PID=""
 START_TS="$(date '+%Y-%m-%d %H:%M:%S')"
@@ -243,7 +243,7 @@ run_case() {
   fi
 }
 
-echo "== Omakey e2e typing harness =="
+echo "== Keymarchy e2e typing harness =="
 echo "Private fcitx5 pid=$FCITX_PID bus=$BUS_ADDR workdir=$WORK"
 echo
 

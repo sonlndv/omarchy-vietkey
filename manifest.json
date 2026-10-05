@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "sonlndv.vietkey",
-  "name": "Omakey",
-  "version": "2.0.0",
+  "name": "Keymarchy",
+  "version": "2.0.1",
   "author": "sonlndv",
   "license": "MIT",
   "description": "Input languages for Omarchy, built on fcitx5. English and Vietnamese (Telex/VNI) by default; add Japanese, Korean, Chinese, Thai, Arabic, Russian, Hebrew, Greek and more. Ctrl+Shift cycles through your languages, and a small dashboard manages them all.",
@@ -14,11 +14,11 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Omakey",
-    "description": "Language badge (EN, VI, JA, AR…) with a menu to switch, add and remove languages, plus an Omakey Settings dashboard. Ctrl+Shift or right click cycles through your languages.",
+    "displayName": "Keymarchy",
+    "description": "Language badge (EN, VI, JA, AR…) with a menu to switch, add and remove languages, plus a Keymarchy Settings dashboard. Ctrl+Shift or right click cycles through your languages.",
     "category": "Compositor",
     "aliases": [
-      "omakey",
+      "keymarchy",
       "vietkey",
       "input method",
       "input language",
@@ -58,7 +58,7 @@
         "max": 60000,
         "step": 1000,
         "defaultValue": 5000,
-        "description": "The badge updates on its own when you switch with Omakey, Ctrl+Shift or a window change. This slow check only catches switches made with fcitx5's own hotkeys."
+        "description": "The badge updates on its own when you switch with Keymarchy, Ctrl+Shift or a window change. This slow check only catches switches made with fcitx5's own hotkeys."
       },
       {
         "key": "showModeName",
