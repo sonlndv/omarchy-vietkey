@@ -1,9 +1,11 @@
 # Omakey — input languages for Omarchy
 
-**English and Vietnamese out of the box, any other language when you want it.**
-Omakey puts the current language on the Omarchy bar (`EN`, `VI`, `JA`, `KO`,
-`ZH`, `TH`), switches with **Ctrl+Shift**, and adds or removes languages from
-its menu. It is a front end for [fcitx5](https://fcitx-im.org/), which Omarchy
+English and Vietnamese out of the box, any other language when you want it.
+Omakey shows the current language on the Omarchy bar, cycles through your
+languages with Ctrl+Shift, and manages them from one small dashboard.
+Formerly VietKey: existing installs upgrade in place.
+
+Omakey is a front end for [fcitx5](https://fcitx-im.org/), which Omarchy
 already runs.
 
 ![Omakey menu and language settings](preview.png)
@@ -65,7 +67,7 @@ omakey-setup --add ja,ko        # ids from the table below
 **Remove language…** drops a language's engines from the fcitx5 group. The
 packages stay installed (`omakey-setup --remove mozc` does the same).
 
-### Languages in v1
+### Supported languages
 
 | Language                    | Badge | Package                 | fcitx5 engine |
 | --------------------------- | ----- | ----------------------- | ------------- |
@@ -76,6 +78,13 @@ packages stay installed (`omakey-setup --remove mozc` does the same).
 | Chinese Simplified (Pinyin) | `ZH`  | `fcitx5-chinese-addons` | `pinyin`      |
 | Chinese Traditional (Zhuyin)| `ZH`  | `fcitx5-chewing`        | `chewing`     |
 | Thai                        | `TH`  | `fcitx5-libthai`        | `libthai`     |
+| Arabic                      | `AR`  | (none, keyboard layout) | `keyboard-ara` |
+| Persian                     | `FA`  | (none, keyboard layout) | `keyboard-ir` |
+| Hebrew                      | `HE`  | (none, keyboard layout) | `keyboard-il` |
+| Russian                     | `RU`  | (none, keyboard layout) | `keyboard-ru` |
+| Ukrainian                   | `UK`  | (none, keyboard layout) | `keyboard-ua` |
+| Greek                       | `EL`  | (none, keyboard layout) | `keyboard-gr` |
+| Hindi                       | `HI`  | (none, keyboard layout) | `keyboard-in` |
 | Anything else               | code  | `fcitx5-m17n`           | from fcitx5's m17n list |
 
 For "anything else" (`--add other`), Omakey installs `fcitx5-m17n`; pick the
@@ -87,7 +96,7 @@ Shuangpin, …) appear under their language too.
 
 | Action                    | Effect                                              |
 | ------------------------- | --------------------------------------------------- |
-| **Ctrl+Shift**            | The next language, in order, back to English after the last |
+| **Ctrl+Shift**            | The next language, in order, wrapping back to English after the last |
 | Right click the badge     | Same as Ctrl+Shift                                  |
 | Click the badge           | Menu: pick any language or mode                     |
 
