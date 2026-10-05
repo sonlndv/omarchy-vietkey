@@ -431,7 +431,7 @@ Panel {
 
   // Slow fallback for switches with no event (fcitx5's own hotkeys).
   Timer {
-    interval: Math.max(2000, Number(root.setting("fallbackRefreshMs", 5000)))
+    interval: Math.max(2000, Number(root.setting("fallbackRefreshMs", 2000)))
     running: true
     repeat: true
     onTriggered: root.refresh()

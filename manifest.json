@@ -46,7 +46,7 @@
     "allowMultiple": false,
     "defaultSection": "center",
     "defaults": {
-      "fallbackRefreshMs": 5000,
+      "fallbackRefreshMs": 2000,
       "showModeName": true
     },
     "schema": [
@@ -57,7 +57,7 @@
         "min": 2000,
         "max": 60000,
         "step": 1000,
-        "defaultValue": 5000,
+        "defaultValue": 2000,
         "description": "The badge updates on its own when you switch with Keymarchy, Ctrl+Shift or a window change. This slow check only catches switches made with fcitx5's own hotkeys."
       },
       {

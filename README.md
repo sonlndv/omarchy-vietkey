@@ -148,7 +148,7 @@ the main menu.
 
 The badge updates straight away when you switch with Keymarchy or Ctrl+Shift,
 and again whenever window focus changes. VietKey polled every 700 ms; Keymarchy
-only keeps a slow fallback check (`fallbackRefreshMs`, 5 s by default) for
+only keeps a slow fallback check (`fallbackRefreshMs`, 2 s by default) for
 switches made with fcitx5's own hotkeys, which send no event. The old
 `pollIntervalMs` setting is no longer used.
 
