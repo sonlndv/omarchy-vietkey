@@ -112,6 +112,7 @@ keymarchy-setup --remove mozc      # drop an engine; the package stays
 | Chinese Simplified (Pinyin)  | `zh-Hans` | `ZH`  | `fcitx5-chinese-addons` | `pinyin`       |
 | Chinese Traditional (Zhuyin) | `zh-Hant` | `ZH`  | `fcitx5-chewing`        | `chewing`      |
 | Thai                         | `th`      | `TH`  | `fcitx5-libthai`        | `libthai`      |
+| Thai (keyboard layout)       | `th-kbd`  | `TH`  | none — keyboard layout  | `keyboard-th`  |
 | Arabic                       | `ar-kbd`  | `AR`  | none — keyboard layout  | `keyboard-ara` |
 | Persian                      | `fa-kbd`  | `FA`  | none — keyboard layout  | `keyboard-ir`  |
 | Hebrew                       | `he-kbd`  | `HE`  | none — keyboard layout  | `keyboard-il`  |
@@ -270,6 +271,8 @@ editing it.
 
 ## Changelog
 
+- **2.0.4** — README: Thai keyboard-layout row (`th-kbd`) was missing from
+  the languages table.
 - **2.0.3** — One setup script: `bin/vietkey-setup` and `bin/omakey-setup`
   shims removed.
 - **2.0.2** — `keymarchy-state` reads fcitx5 via `busctl --json` + `jq`, so
