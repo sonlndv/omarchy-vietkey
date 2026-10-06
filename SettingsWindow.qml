@@ -236,7 +236,7 @@ PanelWindow {
             Layout.alignment: Qt.AlignTop
             spacing: Style.space(2)
 
-            SectionTitle { en: "Languages · Ctrl+Shift order" }
+            SectionTitle { en: "Languages · " + (win.host ? win.host.switchKeyLabel : "Ctrl+Shift") + " order" }
 
             Repeater {
               model: win.languages

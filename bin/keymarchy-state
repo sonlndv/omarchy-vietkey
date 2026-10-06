@@ -1,7 +1,8 @@
 #!/bin/bash
 # Keymarchy bar state, read-only: the current input method and the current
-# fcitx5 group. Prints `im=`, `group=` and `info=` lines for
-# Catalogue.parseState(). Never starts, restarts or changes fcitx5.
+# fcitx5 group, plus the switch key keymarchy-setup recorded. Prints `im=`,
+# `group=`, `info=` and `key=` lines for Catalogue.parseState(). Never
+# starts, restarts or changes fcitx5.
 #
 # Two fcitx5 D-Bus calls, the minimum the Controller1 API allows, run
 # concurrently via process substitution (busctl's own process startup, not
@@ -46,3 +47,7 @@ jq -r -n --argjson im "$im_json" --argjson grp "$grp_json" '
     ("info=sa(ss) " + ($layout | @json) + " " + ($items | length | tostring)
       + " " + ([$items[] | (.[0] | @json) + " " + (.[8] | @json)] | join(" ")))
 '
+
+# The -- keymarchy:key= line keymarchy-setup writes; empty means Ctrl+Shift.
+bindings="${KEYMARCHY_BINDINGS:-${XDG_CONFIG_HOME:-$HOME/.config}/hypr/bindings.lua}"
+printf 'key=%s\n' "$(sed -n 's/^-- keymarchy:key=//p' "$bindings" 2>/dev/null | head -n 1)"

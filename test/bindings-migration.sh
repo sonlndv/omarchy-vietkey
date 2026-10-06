@@ -100,6 +100,35 @@ OUT_DONE=$(KEYMARCHY_BINDINGS="$DONE_FILE" bash "$SETUP" --dry-run 2>&1)
 check "already migrated: reports Keymarchy block present" "$OUT_DONE" "Keymarchy block present"
 not_check "already migrated: no migration-note step shown" "$OUT_DONE" "Upgrading from"
 
+# --------------------------------------------------- --key / --capslock
+KEY_FILE="$WORK/key-bindings.lua"
+cp "$FRESH_FILE" "$KEY_FILE"
+OUT_KEY=$(KEYMARCHY_BINDINGS="$KEY_FILE" bash "$SETUP" --dry-run --key alt+z --capslock normal 2>&1)
+check "--key alt+z: records the key" "$OUT_KEY" "-- keymarchy:key=ALT + Z"
+check "--key alt+z: binds ALT + Z" "$OUT_KEY" 'o.bind("ALT + Z", "Keymarchy: next language"'
+not_check "--key alt+z: no Ctrl+Shift loop" "$OUT_KEY" '"CTRL + SHIFT + " .. key'
+check "--capslock normal: records the choice" "$OUT_KEY" "-- keymarchy:capslock=normal"
+check "--capslock normal: sets kb_options" "$OUT_KEY" "hl.config({ input = { kb_options ="
+
+# A later plain run (e.g. --add from the menu) keeps the recorded choices.
+KEPT_FILE="$WORK/kept-bindings.lua"
+cat > "$KEPT_FILE" <<'BINDINGS'
+-- keymarchy:start
+-- keymarchy:key=ALT + Z
+o.bind("ALT + Z", "Keymarchy: next language", "omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t")
+-- keymarchy:capslock=normal
+hl.config({ input = { kb_options = "" } })
+-- keymarchy:end
+BINDINGS
+OUT_KEPT=$(KEYMARCHY_BINDINGS="$KEPT_FILE" bash "$SETUP" --dry-run 2>&1)
+not_check "plain rerun: does not bring Ctrl+Shift back" "$OUT_KEPT" '"CTRL + SHIFT + " .. key'
+not_check "plain rerun: keeps the CapsLock choice" "$OUT_KEPT" "| --- keymarchy:capslock=normal"
+check "plain rerun: Done names the recorded key" "$OUT_KEPT" "ALT + Z cycles through your languages"
+
+OUT_BACK=$(KEYMARCHY_BINDINGS="$KEPT_FILE" bash "$SETUP" --dry-run --key ctrl+shift --capslock compose 2>&1)
+check "--key ctrl+shift: back to the Ctrl+Shift loop" "$OUT_BACK" '"CTRL + SHIFT + " .. key'
+check "--capslock compose: drops the kb_options line" "$OUT_BACK" '-hl.config({ input = { kb_options'
+
 echo
 echo "== Summary =="
 echo "pass=$PASS fail=$FAIL"

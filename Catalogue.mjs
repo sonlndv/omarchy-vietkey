@@ -285,12 +285,22 @@ export function cycleTarget(currentEngine, groupEngines) {
   return languages[(at + 1) % languages.length].engines[0]
 }
 
+// The switch key as people say it: "ALT + Z" -> "Alt+Z", "SUPER + space" ->
+// "Super+Space". Empty (an older block without -- keymarchy:key=) is the
+// Ctrl+Shift default.
+export function keyLabel(key) {
+  const parts = String(key || "").split("+").map(part => part.trim()).filter(Boolean)
+  if (parts.length === 0) return "Ctrl+Shift"
+  return parts.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join("+")
+}
+
 // The cycle spelled out with badges for menus and tooltips.
-export function cycleHint(languages) {
+export function cycleHint(languages, key) {
+  const label = keyLabel(key)
   const badges = (languages || []).map(language => language.badge || language.name)
-  if (badges.length < 2) return "Ctrl+Shift cycles languages"
-  if (badges.length === 2) return "Ctrl+Shift: " + badges[0] + " ↔ " + badges[1]
-  return "Ctrl+Shift cycles: " + badges.concat([badges[0]]).join(" → ")
+  if (badges.length < 2) return label + " cycles languages"
+  if (badges.length === 2) return label + ": " + badges[0] + " ↔ " + badges[1]
+  return label + " cycles: " + badges.concat([badges[0]]).join(" → ")
 }
 
 // -------------------------------------------------------------- parsing
@@ -318,9 +328,9 @@ export function parseGroupInfo(text) {
   return { layout: tokens[1] || "", items: items }
 }
 
-// bin/keymarchy-state prints `im=`, `group=` and `info=` lines.
+// bin/keymarchy-state prints `im=`, `group=`, `info=` and `key=` lines.
 export function parseState(text) {
-  const state = { running: false, current: "", group: "", layout: "", items: [] }
+  const state = { running: false, current: "", group: "", layout: "", items: [], key: "" }
   for (const line of String(text || "").split("\n")) {
     const at = line.indexOf("=")
     if (at < 0) continue
@@ -328,6 +338,7 @@ export function parseState(text) {
     const value = line.slice(at + 1).trim()
     if (key === "im") state.current = value
     else if (key === "group") state.group = value
+    else if (key === "key") state.key = value
     else if (key === "info") {
       const info = parseGroupInfo(value)
       state.layout = info.layout
