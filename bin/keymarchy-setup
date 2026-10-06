@@ -1,15 +1,19 @@
 #!/bin/bash
 # Keymarchy setup: install input-method engines, append them to the fcitx5
-# group and bind Ctrl+Shift in Hyprland. Upgrades a VietKey or Omakey install
+# group and bind the switch key (Ctrl+Shift by default) in Hyprland. Upgrades a VietKey or Omakey install
 # in place (same plugin id, sonlndv.vietkey).
 #
 #   keymarchy-setup                    English + Vietnamese (first run / upgrade)
 #   keymarchy-setup --add ja,ko        add languages by catalogue id (see below)
 #   keymarchy-setup --remove mozc      drop engines from the fcitx5 group; packages stay
-#   keymarchy-setup --uninstall        remove the Ctrl+Shift block from bindings.lua
+#   keymarchy-setup --uninstall        remove the Keymarchy block from bindings.lua
 #
 #   --dry-run   print every planned change; write nothing, change nothing
 #   --yes       restart fcitx5 without asking when new engines need loading
+#   --key K     switch key: ctrl+shift (default) or a Hyprland combo such as
+#               alt+z or super+space; kept on later runs until changed
+#   --capslock M  normal: CapsLock is a plain Caps Lock (drops Omarchy's
+#               compose:caps); compose: back to Omarchy's default; kept
 #
 # Never runs sudo itself: missing packages go through omarchy-pkg-add, which
 # asks for the password. Existing fcitx5 group entries are never reordered or
@@ -51,15 +55,10 @@ other    -   fcitx5-m17n            -
 '
 # catalogue:end
 
-BLOCK='-- keymarchy:start
--- Keymarchy (plugin sonlndv.vietkey): Ctrl+Shift, either order or side, cycles
--- through every enabled language in fcitx5 group order (EN -> VI -> JA -> EN).
--- Fires on release and lets the keys through, so Ctrl+Shift+<key> still
--- works. Falls back to fcitx5'"'"'s own toggle when the shell is not running.
-for _, key in ipairs({ "Shift_L", "Shift_R", "Control_L", "Control_R" }) do
-  o.bind("CTRL + SHIFT + " .. key, "Keymarchy: next language", "omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t", { release = true, non_consuming = true })
-end
--- keymarchy:end'
+# The Keymarchy block in bindings.lua. Built by make_block once --key and
+# --capslock are known; the -- keymarchy:key= and -- keymarchy:capslock=
+# lines record the choice so a later run (an --add from the menu) keeps it.
+CYCLE_CMD='omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t'
 
 UNIKEY_DEFAULTS='InputMethod=Telex
 OutputCharset=Unicode
@@ -71,12 +70,14 @@ FreeMarking=True'
 
 DRY_RUN=0
 ASSUME_YES=0
+KEY=""
+CAPSLOCK=""
 MODE=setup
 LANGS=()
 REMOVE=()
 
 usage() {
-  sed -n '2,17s/^# \{0,1\}//p' "$0"
+  sed -n '2,21s/^# \{0,1\}//p' "$0"
 }
 
 while (( $# > 0 )); do
@@ -84,6 +85,12 @@ while (( $# > 0 )); do
     -n|--dry-run) DRY_RUN=1 ;;
     -y|--yes) ASSUME_YES=1 ;;
     --uninstall) MODE=uninstall ;;
+    --key)
+      [[ $# -ge 2 ]] || { echo "keymarchy-setup: --key needs a key, e.g. alt+z" >&2; exit 2; }
+      KEY=$2; shift ;;
+    --capslock)
+      [[ $# -ge 2 && $2 =~ ^(normal|compose)$ ]] || { echo "keymarchy-setup: --capslock takes normal or compose" >&2; exit 2; }
+      CAPSLOCK=$2; shift ;;
     --add)
       [[ $# -ge 2 ]] || { echo "keymarchy-setup: --add needs a list of languages" >&2; exit 2; }
       IFS=', ' read -r -a parsed <<<"$2"
@@ -222,6 +229,78 @@ has_keyboard() {
   return 1
 }
 
+# "alt+z" / "ALT + Z" / "Super+Space" -> "ALT + Z" (Hyprland's spelling);
+# "ctrl+shift" in any order or case -> "CTRL + SHIFT", the default.
+normalize_key() {
+  local raw=${1//[[:space:]]/} part out=()
+  IFS='+' read -r -a parts <<<"${raw^^}"
+  for part in "${parts[@]}"; do
+    [[ -n $part ]] || continue
+    case $part in
+      CONTROL) part=CTRL ;;
+      SPACE|RETURN|TAB|ESCAPE) part=${part,,} ;;
+    esac
+    out+=("$part")
+  done
+  (( ${#out[@]} > 0 )) || { echo "keymarchy-setup: --key '$1' has no keys" >&2; exit 2; }
+  local joined
+  joined=$(printf '%s + ' "${out[@]}")
+  joined=${joined% + }
+  [[ $joined == "SHIFT + CTRL" ]] && joined="CTRL + SHIFT"
+  printf '%s\n' "$joined"
+}
+
+# Value of a -- keymarchy:<name>= line in the existing block, if any.
+block_setting() {
+  [[ -f $BINDINGS ]] || return 0
+  sed -n "s/^-- keymarchy:$1=//p" "$BINDINGS" | head -n 1
+}
+
+# Current kb_options without compose:caps, everything else kept.
+caps_options() {
+  local current
+  current=$(hyprctl getoption input:kb_options 2>/dev/null | sed -n 's/^str: //p' | tr -d '"')
+  [[ $current == "[[EMPTY]]" ]] && current=""
+  local opts=() opt
+  IFS=',' read -r -a parts <<<"$current"
+  for opt in "${parts[@]}"; do
+    [[ -n $opt && $opt != compose:caps ]] && opts+=("$opt")
+  done
+  local IFS=,
+  printf '%s\n' "${opts[*]}"
+}
+
+make_block() {
+  local key=$1 caps=$2
+  printf '%s\n' '-- keymarchy:start'
+  printf '%s\n' "-- keymarchy:key=$key"
+  if [[ $key == "CTRL + SHIFT" ]]; then
+    printf '%s\n' \
+      '-- Keymarchy (plugin sonlndv.vietkey): Ctrl+Shift, either order or side, cycles' \
+      '-- through every enabled language in fcitx5 group order (EN -> VI -> JA -> EN).' \
+      '-- Fires on release and lets the keys through, so Ctrl+Shift+<key> still' \
+      "-- works. Falls back to fcitx5's own toggle when the shell is not running." \
+      'for _, key in ipairs({ "Shift_L", "Shift_R", "Control_L", "Control_R" }) do' \
+      "  o.bind(\"CTRL + SHIFT + \" .. key, \"Keymarchy: next language\", \"$CYCLE_CMD\", { release = true, non_consuming = true })" \
+      'end'
+  else
+    printf '%s\n' \
+      "-- Keymarchy (plugin sonlndv.vietkey): $key cycles through every enabled" \
+      '-- language in fcitx5 group order (EN -> VI -> JA -> EN). Change it with' \
+      "-- keymarchy-setup --key. Falls back to fcitx5's own toggle when the shell" \
+      '-- is not running.' \
+      "o.bind(\"$key\", \"Keymarchy: next language\", \"$CYCLE_CMD\")"
+  fi
+  if [[ $caps == normal ]]; then
+    printf '%s\n' \
+      '-- keymarchy:capslock=normal' \
+      '-- CapsLock is a plain Caps Lock: Omarchy'"'"'s compose:caps is dropped from' \
+      '-- kb_options. keymarchy-setup --capslock compose puts it back.' \
+      "hl.config({ input = { kb_options = \"$(caps_options normal)\" } })"
+  fi
+  printf '%s\n' '-- keymarchy:end'
+}
+
 # Every line of the file outside -- vietkey/omakey/keymarchy:start/end, with
 # BLOCK (if non-empty) where the first block was, or appended. Migrates both
 # an old VietKey block and an old Omakey block to the new Keymarchy block.
@@ -247,10 +326,22 @@ check_markers() {
 
 # ---------------------------------------------------------------- bindings
 
+# --key / --capslock win; otherwise keep what the existing block recorded;
+# otherwise Ctrl+Shift and Omarchy's CapsLock.
+resolve_block() {
+  local key caps
+  if [[ -n $KEY ]]; then key=$(normalize_key "$KEY"); else key=$(block_setting key); fi
+  [[ -n $key ]] || key="CTRL + SHIFT"
+  caps=${CAPSLOCK:-$(block_setting capslock)}
+  SWITCH_KEY=$key
+  BLOCK=$(make_block "$key" "$caps")
+}
+
 update_bindings() {
-  step "Ctrl+Shift binding ($BINDINGS)"
+  resolve_block
+  step "Switch key binding ($BINDINGS)"
   if [[ ! -f $BINDINGS ]]; then
-    note "not found; skipping. Ctrl+Shift needs the block below in your Hyprland bindings:"
+    note "not found; skipping. The switch key needs the block below in your Hyprland bindings:"
     # shellcheck disable=SC2001  # per-line prefix; ${var//} can't anchor lines
     sed 's/^/      | /' <<<"$BLOCK"
     return
@@ -276,7 +367,7 @@ update_bindings() {
 }
 
 remove_bindings() {
-  step "Ctrl+Shift binding ($BINDINGS)"
+  step "Switch key binding ($BINDINGS)"
   if [[ ! -f $BINDINGS ]] || ! grep -qE '^-- (vietkey|omakey|keymarchy):start' "$BINDINGS"; then
     note "no Keymarchy, Omakey or VietKey block found; nothing to remove"
     return
@@ -486,7 +577,7 @@ case $MODE in
     add_engines
     update_bindings
     step "Done"
-    note "Ctrl+Shift cycles through your languages in order; click the Keymarchy badge for the menu."
+    note "$SWITCH_KEY cycles through your languages in order; click the Keymarchy badge for the menu."
     note "Reorder, add and remove languages in the menu's Keymarchy Settings…"
     ;;
 esac

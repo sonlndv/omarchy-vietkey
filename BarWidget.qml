@@ -44,7 +44,9 @@ Panel {
   readonly property var groupEngines: groupItems.map(function(item) { return item.name })
   readonly property var currentLanguage: Catalogue.languageForEngine(current)
   readonly property bool english: currentLanguage.id === Catalogue.ENGLISH
-  readonly property string cycleHint: Catalogue.cycleHint(languages)
+  property string switchKey: ""                // from -- keymarchy:key=, e.g. "ALT + Z"
+  readonly property string switchKeyLabel: Catalogue.keyLabel(switchKey)
+  readonly property string cycleHint: Catalogue.cycleHint(languages, switchKey)
 
   // Unikey's live options, e.g. { InputMethod: "Telex", SpellCheck: "True" }.
   property var config: ({ InputMethod: "Telex" })
@@ -377,6 +379,7 @@ Panel {
       onStreamFinished: {
         var state = Catalogue.parseState(text)
         root.running = state.running
+        root.switchKey = state.key
         if (!state.running) return
         root.current = state.current
         if (state.items.length > 0) root.groupItems = state.items

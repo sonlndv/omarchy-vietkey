@@ -2,7 +2,7 @@
 
 **Type in any language on Omarchy.** English and Vietnamese out of the box;
 Japanese, Korean, Chinese, Thai, Arabic, Russian and more when you want them.
-One badge on the bar, **Ctrl+Shift** to cycle, one small dashboard to manage
+One badge on the bar, **Ctrl+Shift** (or a key you pick) to cycle, one small dashboard to manage
 it all.
 
 ![Keymarchy menu and language settings](preview.png)
@@ -37,6 +37,21 @@ That's it. `keymarchy-setup` sets up English + Vietnamese (Telex):
 If a new engine needs fcitx5 to restart, Keymarchy says so and **asks first**.
 Save your work: open apps may need refocusing afterwards. Say no and nothing
 is lost — run it again later to finish.
+
+### Pick the switch key and CapsLock
+
+Prefer another key, or want CapsLock to be a plain Caps Lock? Pass them once;
+later runs (including **Add language…** from the menu) keep them:
+
+```sh
+keymarchy-setup --key alt+z            # any Hyprland combo: super+space, ctrl+alt+k…
+keymarchy-setup --key ctrl+shift       # back to the default
+keymarchy-setup --capslock normal      # CapsLock = Caps Lock (drops Omarchy's compose:caps)
+keymarchy-setup --capslock compose     # back to Omarchy's Compose key
+```
+
+Both live in the same `-- keymarchy:start` … `-- keymarchy:end` block, so
+`--uninstall` removes them too. The menu and Settings name your key.
 
 Every file it touches is backed up as `<file>.bak.<date-time>`. See the plan
 without changing anything:

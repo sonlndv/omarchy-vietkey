@@ -188,6 +188,17 @@ test("cycle hint spells out the order with badges", () => {
   assert.equal(C.cycleHint(langs(["keyboard-us", "unikey", "mozc"])), "Ctrl+Shift cycles: EN → VI → JA → EN")
 })
 
+test("cycle hint names the switch key keymarchy-setup recorded", () => {
+  const langs = names => C.languagesInGroup(group(...names))
+  assert.equal(C.keyLabel(""), "Ctrl+Shift")
+  assert.equal(C.keyLabel("CTRL + SHIFT"), "Ctrl+Shift")
+  assert.equal(C.keyLabel("ALT + Z"), "Alt+Z")
+  assert.equal(C.keyLabel("SUPER + space"), "Super+Space")
+  assert.equal(C.cycleHint(langs(["keyboard-us", "unikey"]), "ALT + Z"), "Alt+Z: EN ↔ VI")
+  assert.equal(C.parseState("im=unikey\nkey=ALT + Z\n").key, "ALT + Z")
+  assert.equal(C.parseState("im=unikey\n").key, "")
+})
+
 test("dashboard reorder moves languages, keeps English slots and engine order", () => {
   const items = group("keyboard-us", "unikey", "mozc", "anthy", "hangul")
   const down = C.moveLanguage(items, "vi", 1)
