@@ -7,9 +7,9 @@ import qs.Commons
 import qs.Ui
 import "Catalogue.mjs" as Catalogue
 
-// Keymarchy: input languages for fcitx5. English plus Vietnamese (Unikey,
-// Telex or VNI) by default; Japanese, Korean, Chinese, Thai and m17n on
-// request.
+// Keymarchy: input languages for fcitx5. English plus Vietnamese (Bamboo, or
+// Unikey where 2.0.x set it up; Telex or VNI) by default; Japanese, Korean,
+// Chinese, Thai and m17n on request.
 //
 // The plugin id stays sonlndv.vietkey (moduleName, IPC target) so VietKey
 // installs upgrade in place.
@@ -29,14 +29,13 @@ Panel {
   moduleName: "sonlndv.vietkey"
   manageIpc: false
 
-  readonly property string configUri: "fcitx://config/inputmethod/unikey"
   readonly property var busctl: ["busctl", "--user", "--auto-start=no", "call", "org.fcitx.Fcitx5", "/controller", "org.fcitx.Fcitx.Controller1"]
   readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "")).replace(/\/$/, "")
   readonly property string setupPath: pluginDir + "/bin/keymarchy-setup"
   readonly property string statePath: pluginDir + "/bin/keymarchy-state"
 
   property bool running: true
-  property string current: ""                 // fcitx5 engine name, e.g. "unikey"
+  property string current: ""                 // fcitx5 engine name, e.g. "bamboo"
   property var groupItems: []                 // [{ name, layout }] in fcitx5 order
   property string groupName: ""               // fcitx5 group, e.g. "Default"
   property string groupLayout: ""             // the group's default layout, e.g. "us"
@@ -48,7 +47,13 @@ Panel {
   readonly property string switchKeyLabel: Catalogue.keyLabel(switchKey)
   readonly property string cycleHint: Catalogue.cycleHint(languages, switchKey)
 
-  // Unikey's live options, e.g. { InputMethod: "Telex", SpellCheck: "True" }.
+  // The Vietnamese engine actually in the group (bamboo, or unikey kept from
+  // 2.0.x) and where its options live over D-Bus.
+  readonly property string viEngine: Catalogue.vietnameseEngine(groupEngines, current)
+  readonly property string configUri: Catalogue.configUriFor(viEngine)
+  // The group can arrive after the first config read; read the right engine.
+  onViEngineChanged: refreshConfig()
+  // That engine's live options, e.g. { InputMethod: "Telex", SpellCheck: "True" }.
   property var config: ({ InputMethod: "Telex" })
   readonly property string viMode: config.InputMethod || "Telex"
   readonly property string modeText: Catalogue.badgeMode(current, config)
@@ -262,11 +267,12 @@ Panel {
   // Telex or VNI, landing in Vietnamese so it is usable straight away.
   function setMode(mode) {
     if (mode !== "Telex" && mode !== "VNI") return
-    current = "unikey"
-    setOption("InputMethod", mode, "fcitx5-remote -s unikey")
+    var engine = viEngine
+    current = engine
+    setOption("InputMethod", mode, "fcitx5-remote -s " + Util.shellQuote(engine))
   }
 
-  // Unikey stores every option, booleans included, as a string.
+  // Bamboo and Unikey store every option, booleans included, as a string.
   function setOption(key, value, then) {
     var next = {}
     for (var k in config) next[k] = config[k]
@@ -395,7 +401,7 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var next = Catalogue.parseUnikeyConfig(text)
+        var next = Catalogue.parseEngineConfig(text)
         if (!next.InputMethod) return
         root.config = next
         if (next.InputMethod !== "Telex" && next.InputMethod !== "VNI") root.setOption("InputMethod", "Telex")

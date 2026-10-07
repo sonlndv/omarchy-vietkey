@@ -75,6 +75,7 @@ export HOME="$WORK/home"
 # Packages Jarvis confirmed installed; still probed live below so a stale
 # assumption here can't mask a real SKIP.
 declare -A ENGINE_PACKAGE=(
+  [bamboo]=fcitx5-bamboo
   [unikey]=fcitx5-unikey
   [mozc]=fcitx5-mozc
   [hangul]=fcitx5-hangul
@@ -133,6 +134,9 @@ Name=chewing
 
 [Groups/0/Items/11]
 Name=libthai
+
+[Groups/0/Items/12]
+Name=bamboo
 
 [GroupOrder]
 0=Default
@@ -194,8 +198,9 @@ declare -a SKIPPED=()
 declare -a FAILED_NAMES=()
 
 run_case() {
-  # run_case NAME ENGINE KEYSPEC TIMEOUT_MS EXPECTED [UNIKEY_MODE]
-  local name=$1 engine=$2 keyspec=$3 timeout_ms=$4 expected=$5 unikey_mode=${6:-}
+  # run_case NAME ENGINE KEYSPEC TIMEOUT_MS EXPECTED [VI_MODE]
+  # VI_MODE (Telex/VNI) is set on ENGINE's own config (bamboo or unikey).
+  local name=$1 engine=$2 keyspec=$3 timeout_ms=$4 expected=$5 vi_mode=${6:-}
   local pkg
   pkg=$(missing_pkg "$engine")
   if [[ -n "$pkg" ]]; then
@@ -203,10 +208,10 @@ run_case() {
     SKIPPED+=("$name: $pkg")
     return
   fi
-  if [[ -n "$unikey_mode" ]]; then
+  if [[ -n "$vi_mode" ]]; then
     busctl --address="$BUS_ADDR" call org.fcitx.Fcitx5 /controller \
-      org.fcitx.Fcitx.Controller1 SetConfig sv "fcitx://config/inputmethod/unikey" \
-      'a{sv}' 1 InputMethod s "$unikey_mode" >/dev/null 2>>"$WORK/err.log" || true
+      org.fcitx.Fcitx.Controller1 SetConfig sv "fcitx://config/inputmethod/$engine" \
+      'a{sv}' 1 InputMethod s "$vi_mode" >/dev/null 2>>"$WORK/err.log" || true
   fi
   local out commit
   out=$("$PY" "$DBUS_HELPER" "$BUS_ADDR" "$engine" "$keyspec" "$timeout_ms" 2>"$WORK/err.log")
@@ -252,6 +257,18 @@ echo
 run_case "EN keyboard-us: tieng viet" "keyboard-us" \
   "0x74:0;0x74:1;0x69:0;0x69:1;0x65:0;0x65:1;0x6e:0;0x6e:1;0x67:0;0x67:1;0x20:0;0x20:1;0x76:0;0x76:1;0x69:0;0x69:1;0x65:0;0x65:1;0x74:0;0x74:1" \
   2000 "__ALL_UNHANDLED__"
+
+run_case "VI bamboo Telex: tieengs vieejt -> tiếng việt" "bamboo" \
+  "0x74:0;0x74:1;0x69:0;0x69:1;0x65:0;0x65:1;0x65:0;0x65:1;0x6e:0;0x6e:1;0x67:0;0x67:1;0x73:0;0x73:1;0x20:0;0x20:1;0x76:0;0x76:1;0x69:0;0x69:1;0x65:0;0x65:1;0x65:0;0x65:1;0x6a:0;0x6a:1;0x74:0;0x74:1;0x20:0;0x20:1" \
+  2500 "tiếng việt " "Telex"
+
+run_case "VI bamboo VNI: tie6ng1 vie65t -> tiếng việt" "bamboo" \
+  "0x74:0;0x74:1;0x69:0;0x69:1;0x65:0;0x65:1;0x36:0;0x36:1;0x6e:0;0x6e:1;0x67:0;0x67:1;0x31:0;0x31:1;0x20:0;0x20:1;0x76:0;0x76:1;0x69:0;0x69:1;0x65:0;0x65:1;0x36:0;0x36:1;0x35:0;0x35:1;0x74:0;0x74:1;0x20:0;0x20:1" \
+  2500 "tiếng việt " "VNI"
+
+run_case "VI bamboo restore-English: 'class ' stays 'class '" "bamboo" \
+  "0x63:0;0x63:1;0x6c:0;0x6c:1;0x61:0;0x61:1;0x73:0;0x73:1;0x73:0;0x73:1;0x20:0;0x20:1" \
+  2000 "class " "Telex"
 
 run_case "VI unikey Telex: tieengs vieejt -> tiếng việt" "unikey" \
   "0x74:0;0x74:1;0x69:0;0x69:1;0x65:0;0x65:1;0x65:0;0x65:1;0x6e:0;0x6e:1;0x67:0;0x67:1;0x73:0;0x73:1;0x20:0;0x20:1;0x76:0;0x76:1;0x69:0;0x69:1;0x65:0;0x65:1;0x65:0;0x65:1;0x6a:0;0x6a:1;0x74:0;0x74:1;0x20:0;0x20:1" \

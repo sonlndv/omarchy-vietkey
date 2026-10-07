@@ -17,7 +17,7 @@ export const LANGUAGES = [
   { id: "en", badge: "EN", name: "English", nativeName: "English",
     package: "", engines: ["keyboard-us"], modes: [] },
   { id: "vi", badge: "VI", name: "Vietnamese", nativeName: "Tiếng Việt",
-    package: "fcitx5-unikey", engines: ["unikey"], modes: ["Telex", "VNI"] },
+    package: "fcitx5-bamboo", engines: ["bamboo", "unikey"], modes: ["Telex", "VNI"] },
   { id: "ja", badge: "JA", name: "Japanese", nativeName: "日本語",
     package: "fcitx5-mozc", engines: ["mozc", "anthy", "skk", "kkc"],
     modes: ["Hiragana", "Katakana", "Half-width Katakana", "Direct input"] },
@@ -76,7 +76,7 @@ export const OTHER_LAYOUT = {
 }
 
 const ENGINE_LABELS = {
-  unikey: "Unikey", mozc: "Mozc", anthy: "Anthy", skk: "SKK", kkc: "KKC",
+  bamboo: "Bamboo", unikey: "Unikey", mozc: "Mozc", anthy: "Anthy", skk: "SKK", kkc: "KKC",
   hangul: "Hangul", pinyin: "Pinyin", shuangpin: "Shuangpin", wbx: "Wubi",
   chewing: "Zhuyin", libthai: "Thai"
 }
@@ -133,10 +133,55 @@ export function badgeFor(engine) {
   return languageForEngine(engine).badge
 }
 
-// Text next to the badge: Telex/VNI for Unikey (read from its config), and
-// the input style for Chinese, where ZH alone is ambiguous.
-export function badgeMode(engine, unikeyConfig) {
-  if (engine === "unikey") return (unikeyConfig && unikeyConfig.InputMethod) || "Telex"
+// Vietnamese engines Keymarchy drives (Telex/VNI over D-Bus). Bamboo is the
+// one keymarchy-setup installs; Unikey (Keymarchy 2.0.x) keeps working where
+// it is already in the group.
+export const VIETNAMESE_ENGINES = ["bamboo", "unikey"]
+
+export function isVietnameseEngine(engine) {
+  return VIETNAMESE_ENGINES.indexOf(engine) >= 0
+}
+
+// The engine Telex/VNI switching and the Vietnamese options apply to: the
+// current engine if it is Vietnamese, else the first Vietnamese engine in
+// the group, else Bamboo (what keymarchy-setup adds).
+export function vietnameseEngine(engines, current) {
+  if (isVietnameseEngine(current)) return current
+  for (const engine of engines || [])
+    if (isVietnameseEngine(engine)) return engine
+  return VIETNAMESE_ENGINES[0]
+}
+
+// fcitx5's config URI for an input method's options; Bamboo and Unikey both
+// answer on fcitx://config/inputmethod/<engine>.
+export function configUriFor(engine) {
+  return "fcitx://config/inputmethod/" + engine
+}
+
+// Output charsets and boolean options as each engine spells them in its
+// config (Bamboo and Unikey name the same charsets differently, and only
+// Unikey has ProcessWAtBegin). Values are what SetConfig must be sent.
+const VIETNAMESE_CHARSETS = {
+  bamboo: ["Unicode", "TCVN3 (ABC)", "VNI Windows", "VIQR", "BKHCM 2", "Unicode C string Hex", "NCR Decimal", "NCR Hex"],
+  unikey: ["Unicode", "TCVN3", "VNI Win", "VIQR", "BK HCM 2", "CString", "NCR Decimal", "NCR Hex"]
+}
+const VIETNAMESE_OPTIONS = {
+  bamboo: ["SpellCheck", "AutoNonVnRestore", "ModernStyle", "FreeMarking"],
+  unikey: ["SpellCheck", "AutoNonVnRestore", "ModernStyle", "FreeMarking", "ProcessWAtBegin"]
+}
+
+export function vietnameseCharsets(engine) {
+  return VIETNAMESE_CHARSETS[engine] || VIETNAMESE_CHARSETS.bamboo
+}
+
+export function vietnameseOptions(engine) {
+  return VIETNAMESE_OPTIONS[engine] || VIETNAMESE_OPTIONS.bamboo
+}
+
+// Text next to the badge: Telex/VNI for the Vietnamese engine (read from its
+// config), and the input style for Chinese, where ZH alone is ambiguous.
+export function badgeMode(engine, viConfig) {
+  if (isVietnameseEngine(engine)) return (viConfig && viConfig.InputMethod) || "Telex"
   const language = languageForEngine(engine)
   if (language.id === "zh-Hans" || language.id === "zh-Hant") return engineLabel(engine)
   return ""
@@ -349,10 +394,10 @@ export function parseState(text) {
   return state
 }
 
-// `busctl call ... GetConfig s fcitx://config/inputmethod/unikey`: values
-// come first, the option schema follows from "UnikeyConfig".
-export function parseUnikeyConfig(text) {
-  const values = String(text || "").split('"UnikeyConfig"')[0]
+// `busctl call ... GetConfig s fcitx://config/inputmethod/<engine>`: values
+// come first, the option schema follows from "BambooConfig" / "UnikeyConfig".
+export function parseEngineConfig(text) {
+  const values = String(text || "").split(/"[A-Za-z]+Config"/)[0]
   const out = {}
   const re = /"([A-Za-z]+)" s "([^"]*)"/g
   let m
