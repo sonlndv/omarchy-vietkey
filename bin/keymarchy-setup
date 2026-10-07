@@ -37,7 +37,7 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 # catalogue:start
 CATALOGUE='
 en       EN  -                      keyboard-us
-vi       VI  fcitx5-unikey          unikey
+vi       VI  fcitx5-bamboo          bamboo
 ja       JA  fcitx5-mozc            mozc
 ko       KO  fcitx5-hangul          hangul
 zh-Hans  ZH  fcitx5-chinese-addons  pinyin
@@ -60,7 +60,8 @@ other    -   fcitx5-m17n            -
 # lines record the choice so a later run (an --add from the menu) keeps it.
 CYCLE_CMD='omarchy-shell sonlndv.vietkey toggle || fcitx5-remote -t'
 
-UNIKEY_DEFAULTS='InputMethod=Telex
+# Bamboo (fcitx5-bamboo) options, written only when the user has none.
+BAMBOO_DEFAULTS='InputMethod=Telex
 OutputCharset=Unicode
 SpellCheck=True
 Macro=False
@@ -515,14 +516,14 @@ remove_engines() {
   write_group
 }
 
-unikey_config() {
+vietnamese_config() {
   [[ " ${LANGS[*]} " == *" vi "* ]] || return 0
-  step "Unikey (Vietnamese) config"
-  local file="$FCITX_CONF/conf/unikey.conf"
+  step "Bamboo (Vietnamese) config"
+  local file="$FCITX_CONF/conf/bamboo.conf"
   if [[ -f $file ]]; then
     note "keeping $file"
   else
-    write_file "$file" "$UNIKEY_DEFAULTS"
+    write_file "$file" "$BAMBOO_DEFAULTS"
   fi
 }
 
@@ -554,7 +555,8 @@ migration_note() {
   step "Upgrading from $from"
   note "Keymarchy keeps the plugin id $PLUGIN_ID, so this is an in-place upgrade:"
   note "update the plugin files with 'omarchy plugin update $PLUGIN_ID' (no remove and re-add)."
-  note "Your Unikey settings ($FCITX_CONF/conf/unikey.conf) are kept as they are."
+  note "Your Unikey settings ($FCITX_CONF/conf/unikey.conf) are kept as they are;"
+  note "Unikey keeps working if it is in your group. New setups use Bamboo."
 }
 
 # ---------------------------------------------------------------- main
@@ -573,7 +575,7 @@ case $MODE in
     migration_note
     install_packages
     fresh_behaviour
-    unikey_config
+    vietnamese_config
     add_engines
     update_bindings
     step "Done"

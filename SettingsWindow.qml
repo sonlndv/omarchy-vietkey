@@ -11,7 +11,7 @@ import "Catalogue.mjs" as Catalogue
 //
 // Left, the languages in Ctrl+Shift cycle order (the fcitx5 group order) with
 // a check on the active one: move up/down, remove, or add more through the
-// menu's picker. Right, the selected language's options: the Unikey page for
+// menu's picker. Right, the selected language's options: the Vietnamese page for
 // Vietnamese, an engine picker where a language has several engines in the
 // group, a link to fcitx5-configtool otherwise, and nothing to set for
 // keyboard layouts. Below, the shortcut and bar options. Every change applies
@@ -22,7 +22,7 @@ import "Catalogue.mjs" as Catalogue
 PanelWindow {
   id: win
 
-  // BarWidget: languages, current, config, settingsLanguage, switchTo(),
+  // BarWidget: languages, current, config, viEngine, settingsLanguage, switchTo(),
   // setOption(), moveLanguage(), removeLanguage(), addFromSettings(),
   // openFcitxConfig(), setShowModeName(), closeSettings()
   property var host: null
@@ -49,14 +49,20 @@ PanelWindow {
     { value: "Telex", hint: "aa → â · dd → đ · s f r x j → dấu" },
     { value: "VNI", hint: "a6 → â · d9 → đ · 1 2 3 4 5 → dấu" }
   ]
-  readonly property var charsets: ["Unicode", "TCVN3", "VNI Win", "VIQR", "BK HCM 2", "CString", "NCR Decimal", "NCR Hex"]
-  readonly property var options: [
+  // Charsets and options as the Vietnamese engine in the group (Bamboo, or
+  // Unikey from 2.0.x) names them; SetConfig takes these values verbatim.
+  readonly property string viEngine: host ? host.viEngine : "bamboo"
+  readonly property var charsets: Catalogue.vietnameseCharsets(viEngine)
+  readonly property var allOptions: [
     { key: "SpellCheck", vi: "Kiểm tra chính tả", en: "Spell check" },
     { key: "AutoNonVnRestore", vi: "Tự khôi phục từ không phải tiếng Việt", en: "Restore non-Vietnamese words (class, windows…)" },
     { key: "ModernStyle", vi: "Đặt dấu kiểu mới: oà, uý", en: "Modern tone placement (oà, uý instead of òa, úy)" },
     { key: "FreeMarking", vi: "Cho phép gõ dấu tự do", en: "Type tone marks anywhere in the word" },
     { key: "ProcessWAtBegin", vi: "Xử lý W ở đầu từ", en: "W at the start of a word becomes Ư" }
   ]
+  readonly property var options: allOptions.filter(function(o) {
+    return Catalogue.vietnameseOptions(win.viEngine).indexOf(o.key) >= 0
+  })
 
   // Keyboard cursor: the language list (rows 0..n-1, then "Add language…"
   // at n) or the detail pane's controls, in detailItems order.

@@ -30,7 +30,7 @@ That's it. `keymarchy-setup` sets up English + Vietnamese (Telex):
    there is reordered or removed;
 3. on a first install only: one input state for every window, and fcitx5's
    lone-Shift switching turned off;
-4. writes default Unikey options (Telex, Unicode) if you have none;
+4. writes default Bamboo options (Telex, Unicode) if you have none;
 5. adds the **Ctrl+Shift** binding to `~/.config/hypr/bindings.lua`, inside a
    `-- keymarchy:start` … `-- keymarchy:end` block.
 
@@ -121,7 +121,7 @@ keymarchy-setup --remove mozc      # drop an engine; the package stays
 | Language                     | id        | Badge | Package                 | fcitx5 engine  |
 | ---------------------------- | --------- | ----- | ----------------------- | -------------- |
 | English                      | `en`      | `EN`  | built in                | `keyboard-us`  |
-| Vietnamese (Telex / VNI)     | `vi`      | `VI`  | `fcitx5-unikey`         | `unikey`       |
+| Vietnamese (Telex / VNI)     | `vi`      | `VI`  | `fcitx5-bamboo`         | `bamboo`       |
 | Japanese                     | `ja`      | `JA`  | `fcitx5-mozc`           | `mozc`         |
 | Korean                       | `ko`      | `KO`  | `fcitx5-hangul`         | `hangul`       |
 | Chinese Simplified (Pinyin)  | `zh-Hans` | `ZH`  | `fcitx5-chinese-addons` | `pinyin`       |
@@ -152,7 +152,7 @@ Changes apply straight away.
   (English stays first). **󰍴** removes from the group; packages stay.
   **Add language…** opens the picker.
 - **Options** (right), for the selected language:
-  - Vietnamese — the Unikey page below.
+  - Vietnamese — the Bamboo page below.
   - A language with several engines in your group (Mozc + Anthy, Pinyin +
     Shuangpin) — pick the engine.
   - Other engines — a link to `fcitx5-configtool`.
@@ -163,14 +163,22 @@ Changes apply straight away.
 Keys: ↑/↓ select, Ctrl+↑/↓ move, Enter switch, Delete remove, Tab or → to
 options, Esc close.
 
-### Vietnamese (Unikey)
+### Vietnamese (Bamboo)
+
+New setups use [fcitx5-bamboo](https://github.com/fcitx/fcitx5-bamboo).
 
 - **Kiểu gõ · Input method:** Telex or VNI
-- **Bảng mã · Charset:** Unicode (default), TCVN3, VNI Win, VIQR, BK HCM 2,
-  CString, NCR Decimal, NCR Hex
+- **Bảng mã · Charset:** Unicode (default), TCVN3 (ABC), VNI Windows, VIQR,
+  BKHCM 2, Unicode C string Hex, NCR Decimal, NCR Hex
 - **Tuỳ chọn · Options:** spell check · auto-restore non-Vietnamese words
   (`class`, `windows` stay as typed) · modern tone placement (oà, uý) · free
-  tone-mark position · W at word start → Ư
+  tone-mark position
+
+**Unikey still works.** If your group already has `unikey` (Keymarchy 2.0.x
+set it up), it keeps the `VI` badge, Telex/VNI switching and this page, using
+Unikey's own charset names and its extra "W at word start → Ư" option.
+Keymarchy never removes it; to move to Bamboo, run `keymarchy-setup` (it adds
+`bamboo`) and then `keymarchy-setup --remove unikey`.
 
 **Telex**
 
@@ -206,7 +214,9 @@ omarchy plugin update sonlndv.vietkey
 `keymarchy-setup` finds the old `-- vietkey:start/end` (or 2.0.0's
 `-- omakey:start/end`) block in `~/.config/hypr/bindings.lua` and replaces it
 with `-- keymarchy:start/end`, backing the file up first. Your Unikey settings
-and fcitx5 group are untouched. `--dry-run` shows the exact change.
+and fcitx5 group entries are untouched; Unikey keeps working, and Bamboo is
+appended next to it (see [Vietnamese (Bamboo)](#vietnamese-bamboo)).
+`--dry-run` shows the exact change.
 
 Until you run it, the old binding still works — it calls `fcitx5-remote -t`
 directly, so it toggles two languages rather than cycling all of them.
@@ -286,6 +296,11 @@ editing it.
 
 ## Changelog
 
+- **2.1.0** — Vietnamese uses [fcitx5-bamboo](https://github.com/fcitx/fcitx5-bamboo)
+  by default (`fcitx5-bamboo` / `bamboo`); `keymarchy-setup` writes default
+  options to `conf/bamboo.conf` only if it is missing. Existing Unikey
+  setups keep working: `unikey` still shows `VI` with Telex/VNI, and the
+  mode switch and Settings target whichever Vietnamese engine is in your group.
 - **2.0.4** — README: Thai keyboard-layout row (`th-kbd`) was missing from
   the languages table.
 - **2.0.3** — One setup script: `bin/vietkey-setup` and `bin/omakey-setup`
@@ -305,7 +320,8 @@ ask-before-restart, no polling) inspired by
 [ray0907/input-menu](https://github.com/Ray0907/omarchy-input-menu) (MIT).
 Menu design follows
 [jesusarchive/omarchy-keyboard-layout-switcher](https://github.com/jesusarchive/omarchy-keyboard-layout-switcher) (MIT).
-Vietnamese input by [fcitx5-unikey](https://github.com/fcitx/fcitx5-unikey).
+Vietnamese input by [fcitx5-bamboo](https://github.com/fcitx/fcitx5-bamboo);
+[fcitx5-unikey](https://github.com/fcitx/fcitx5-unikey) is still supported.
 
 ## License
 
